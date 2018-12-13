@@ -1,0 +1,7 @@
+# RCSB_UTILS_SEQ HISTORY
+
+  11-Dec-2018  - V0.10 Created module supporting PDB - UniProt mapping using SIFTS
+
+
+
+
