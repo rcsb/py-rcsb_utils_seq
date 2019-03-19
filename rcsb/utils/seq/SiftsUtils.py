@@ -7,7 +7,7 @@
 
 ##
 """
-Utilities to read SIFTS PDB -> UniProt mapping data.
+Utilities to read SIFTS summary mapping data.
 
 """
 __docformat__ = "restructuredtext en"
@@ -25,10 +25,250 @@ logger = logging.getLogger(__name__)
 
 class SiftsUtils(object):
     """
+
     """
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self.__ns = None
+        self.__siftsSummaryDirPath = kwargs.get("siftsSummaryDirPath", None)
+
+    def getSummaryMapping(self, siftsSummaryDirPath, outFilePath):
+        """
+        """
+        uD = self.__getUniprotChainMapping(siftsSummaryDirPath, 'pdb_chain_uniprot.csv.gz')
+        uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, 'uniprot_segments_observed.csv.gz')
+        logger.info("uD length %d uSeqD %d" % (len(uD), len(uSeqD)))
+        #
+        # --------------------
+        #
+        tD = self.__getTaxonomnyChainMapping(siftsSummaryDirPath, 'pdb_chain_taxonomy.csv.gz')
+        logger.info("Taxonomy mapping length %d" % len(tD))
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['TAXID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        # --------------------
+        #
+        tD = self.__getCathChainMapping(siftsSummaryDirPath, 'pdb_chain_cath_uniprot.csv.gz')
+        logger.info("CATH mappinglength %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['CATHID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+
+        tD = self.__getScopChainMapping(siftsSummaryDirPath, 'pdb_chain_scop_uniprot.csv.gz')
+        logger.info("SCOP mapping length %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['SCOPID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        tD = self.__getPfamChainMapping(siftsSummaryDirPath, 'pdb_chain_pfam.csv.gz')
+        logger.info("PFAM mapping length %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['PFAMID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        tD = self.__getEnzymeChainMapping(siftsSummaryDirPath, 'pdb_chain_enzyme.csv.gz')
+        logger.info("EC mapping length %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['ECID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        tD = self.__getInterProChainMapping(siftsSummaryDirPath, 'pdb_chain_interpro.csv.gz')
+        logger.info("InterPro mapping length %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['IPROID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        #
+        tD = self.__getGeneOntologyChainMapping(siftsSummaryDirPath, 'pdb_chain_go.csv.gz')
+        logger.info("GO mapping length %d" % len(tD))
+        #
+        #
+        for entryId, eD in uSeqD.items():
+            for chainId, cD in eD.items():
+                uSeqD[entryId][chainId]['GOID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
+        #
+        mU = MarshalUtil()
+        mU.doExport(outFilePath, uSeqD, format="pickle")
+        #
+        return uSeqD
+
+    def __getGeneOntologyChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level GO mapping data.
+
+        PDB,CHAIN,SP_PRIMARY,WITH_STRING,EVIDENCE,GO_ID
+        101m,A,IPRO,InterPro:IPR000971,IEA,GO:0020037
+        101m,A,IPRO,InterPro:IPR002335,IEA,GO:0015671
+        101m,A,IPRO,InterPro:IPR002335,IEA,GO:0019825
+        101m,A,IPRO,InterPro:IPR002335,IEA,GO:0020037
+        101m,A,IPRO,InterPro:IPR012292,IEA,GO:0019825
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            prov = rowD['SP_PRIMARY']
+            evidenceCode = rowD['EVIDENCE']
+            goId = rowD['GO_ID']
+            d = {'GO_ID': goId, 'EV': evidenceCode, 'PROV': prov}
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(d)
+        logger.info("GO data for %d entries" % len(tD))
+        return tD
+
+    def __getInterProChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level InterPro mapping data.
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            interProId = rowD['INTERPRO_ID']
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(interProId)
+        logger.info("InterPro data for %d entries" % len(tD))
+        return tD
+
+    def __getPfamChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level PFAM mapping data.
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            pfamId = rowD['PFAM_ID']
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(pfamId)
+        logger.info("EC data for %d entries" % len(tD))
+        return tD
+
+    def __getEnzymeChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level EC mapping data.
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            ecId = rowD['EC_NUMBER']
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(ecId)
+        logger.info("EC data for %d entries" % len(tD))
+        return tD
+
+    def __getCathChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level CATH mapping data.
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            cathId = rowD['CATH_ID']
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(cathId)
+        logger.info("CATH data for %d entries" % len(tD))
+        return tD
+
+    def __getScopChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level SCOP mapping data.
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("%r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            scopId = rowD['SCOP_ID']
+            #
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(scopId)
+        #
+        logger.info("SCOP data for %d entries" % len(tD))
+        return tD
+
+    def __getTaxonomnyChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """ Integrated SIFTS summary instance-level taxonomy mapping data.
+
+        # Taxonomy
+        [('PDB', '101m'), ('CHAIN', 'A'), ('TAX_ID', '9755'), ('SCIENTIFIC_NAME', 'PHYCD')]
+
+        """
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("%r" % list(rowDL[0].items()))
+        tD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            taxId = rowD['TAX_ID']
+            tD.setdefault(entryId, {}).setdefault(chainId, []).append(taxId)
+        #
+        logger.info("Taxonomy for %d entries" % len(tD))
+        return tD
+
+    def __getUniprotChainMapping(self, siftsSummaryDirPath, csvFileName):
+        """  Integrated SIFTS summary instance-level uniprot mapping data.
+        """
+        #
+        #
+        fp = os.path.join(siftsSummaryDirPath, csvFileName)
+        rowDL = self.__readSiftsSummaryFile(fp)
+        logger.info("Length of SIFTS UniProt summary file %s %d" % (csvFileName, len(rowDL)))
+        logger.info("%r" % list(rowDL[0].items()))
+        uD = {}
+        for rowD in rowDL:
+            entryId = rowD['PDB']
+            chainId = rowD['CHAIN']
+            unpId = rowD['SP_PRIMARY']
+            #
+            entitySeqBeg = int(rowD['RES_BEG']) if rowD['RES_BEG'].isdigit() else None
+            entitySeqEnd = int(rowD['RES_END']) if rowD['RES_END'].isdigit() else None
+            authSeqBeg = int(rowD['PDB_BEG']) if rowD['PDB_BEG'].isdigit() else None
+            authSeqEnd = int(rowD['PDB_END']) if rowD['PDB_END'].isdigit() else None
+            unpSeqBeg = int(rowD['SP_BEG']) if rowD['SP_BEG'].isdigit() else None
+            unpSeqEnd = int(rowD['SP_END']) if rowD['SP_END'].isdigit() else None
+            #
+            # data.setdefault("system", {})["name"] = platform.system()
+            #
+            d = {'UP': unpId, 'BG': entitySeqBeg, 'ND': entitySeqEnd, 'AUBG': authSeqBeg, 'AUND': authSeqEnd, 'UBG': unpSeqBeg, 'UND': unpSeqEnd}
+            uD.setdefault(entryId, {}).setdefault(chainId, {}).setdefault('AL', []).append(d)
+            #
+        logger.info("UniProt mapping for %d entries" % len(uD))
+        # -----
+        return uD
 
     def __readSiftsSummaryFile(self, filePath):
         """ Read input SIFTS summary file and return a list of dictionaries.
@@ -41,70 +281,3 @@ class SiftsUtils(object):
         except Exception as e:
             logger.exception("Failing with %s" % str(e))
         return cL
-
-    def getSummaryMapping(self, siftsSummaryDirPath):
-        """ Integrated SIFTS summary instance-level taxonomy and UniProt mapping data.
-
-        Returns:
-
-
-        # Taxonomy
-        [('PDB', '101m'), ('CHAIN', 'A'), ('TAX_ID', '9755'), ('SCIENTIFIC_NAME', 'PHYCD')]
-        # Uniprot
-        [('PDB', '101m'), ('CHAIN', 'A'), ('SP_PRIMARY', 'P02185'), ('RES_BEG', '1'), ('RES_END', '154'), ('PDB_BEG', '0'), ('PDB_END', '153'), ('SP_BEG', '1'), ('SP_END', '154')]
-        """
-        fp = os.path.join(siftsSummaryDirPath, 'pdb_chain_taxonomy.csv.gz')
-        taxDL = self.__readSiftsSummaryFile(fp)
-        logger.info("Length of SIFTS taxonomy summary file %d" % len(taxDL))
-        logger.info("%r" % list(taxDL[0].items()))
-        tD = {}
-        for taxD in taxDL:
-            entryId = taxD['PDB']
-            chainId = taxD['CHAIN']
-            taxId = taxD['TAX_ID']
-            #
-            if entryId not in tD:
-                tD[entryId] = {}
-            #
-            if chainId not in tD[entryId]:
-                tD[entryId][chainId] = {}
-            #
-            tD[entryId][chainId][taxId] = True
-        #
-        logger.info("Taxonomy for %d entries" % len(tD))
-        #
-        #
-        fp = os.path.join(siftsSummaryDirPath, 'pdb_chain_uniprot.csv.gz')
-        unpDL = self.__readSiftsSummaryFile(fp)
-        logger.info("Length of SIFTS UniProt summary file %d" % len(unpDL))
-        logger.info("%r" % list(unpDL[0].items()))
-        uD = {}
-        for unpD in unpDL:
-            entryId = unpD['PDB']
-            chainId = unpD['CHAIN']
-            unpId = unpD['SP_PRIMARY']
-            #
-            txL = []
-            try:
-                txL = list(tD[entryId][chainId].keys())
-            except Exception:
-                logger.debug("No taxonmy for %s %s" % (entryId, chainId))
-
-            #
-            pdbSeqBeg = int(unpD['RES_BEG']) if unpD['RES_BEG'].isdigit() else None
-            pdbSeqEnd = int(unpD['RES_END']) if unpD['RES_END'].isdigit() else None
-            unpSeqBeg = int(unpD['SP_BEG']) if unpD['SP_BEG'].isdigit() else None
-            unpSeqEnd = int(unpD['SP_END']) if unpD['SP_END'].isdigit() else None
-            #
-            if entryId not in uD:
-                uD[entryId] = {}
-            #
-            if chainId not in uD[entryId]:
-                uD[entryId][chainId] = []
-            #
-            uD[entryId][chainId].append({'UP': unpId, 'TX': txL, 'NT': len(txL), 'BG': pdbSeqBeg, 'ND': pdbSeqEnd, 'UBG': unpSeqBeg, 'UND': unpSeqEnd})
-            # uD[entryId][chainId].append({'UP': unpId, 'TX': txL, 'NT': len(txL), 'BEG': pdbSeqBeg, 'END': pdbSeqEnd})
-            #
-        logger.info("UniProt mapping for %d entries" % len(uD))
-        # -----
-        return uD
