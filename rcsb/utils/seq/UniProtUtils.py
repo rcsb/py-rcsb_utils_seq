@@ -33,7 +33,7 @@ class UniProtUtils(object):
         self.__dataList = []
         #
 
-    def fetchList(self, idList, maxChunkSize=100):
+    def fetchList(self, idList, maxChunkSize=200):
         """     Execute a fetch query for the input id list.
                 The input list is filtered for variants (e.g. ids with appended '-#').
 
@@ -62,11 +62,14 @@ class UniProtUtils(object):
             #
             searchIdList = list(set(searchIdList))
             subLists = self.__makeSubLists(maxChunkSize, searchIdList)
+            numLists = len(searchIdList) / maxChunkSize + 1
 
-            for subList in subLists:
+            for ii, subList in enumerate(subLists):
                 logger.debug("Fetching subList %r" % subList)
+                logger.info("Starting fetching for sublist %d/%d" % (ii + 1, numLists))
                 #
                 ok, xmlText = self.__doRequest(subList)
+                logger.debug("Status %r" % ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
                 #
@@ -77,10 +80,13 @@ class UniProtUtils(object):
                         self.__dataList.append(xmlText)
                 else:
                     logger.info("Fetch %r status %r text %r" % (subList, ok, xmlText))
+
             #
             # Create a match dictionary for the input id list -
             #
             for inpId, sD in matchD.items():
+                if 'matched' in sD:
+                    continue
                 if sD['searchId'] in resultD:
                     sD.setdefault('matchedIds', []).append(sD['searchId'])
                     sD['matched'] = 'primary'

@@ -7,7 +7,7 @@
 
 ##
 """
-Utilities to read SIFTS summary mapping data.
+Utilities to access SIFTS summary mapping data.
 
 """
 __docformat__ = "restructuredtext en"
@@ -29,10 +29,59 @@ class SiftsUtils(object):
     """
 
     def __init__(self, **kwargs):
-        self.__ns = None
-        self.__siftsSummaryDirPath = kwargs.get("siftsSummaryDirPath", None)
+        self.__ssD = self.__rebuildCache(**kwargs)
 
-    def getSummaryMapping(self, siftsSummaryDirPath, outFilePath):
+    def getEntryCount(self):
+        return len(self.__ssD)
+
+    def getAlignmentCount(self, entryId, authAsymId):
+        num = 0
+        try:
+            num = len(self.__ssD[entryId][authAsymId]['AL'])
+        except Exception:
+            pass
+        return num
+
+    def getAlignments(self, entryId, authAsymId):
+        aL = []
+        try:
+            aL = self.__ssD[entryId][authAsymId]['AL']
+        except Exception:
+            pass
+        return aL
+
+    def getTaxIds(self, entryId, authAsymId):
+        tL = []
+        try:
+            tL = self.__ssD[entryId][authAsymId]['TAXID']
+        except Exception:
+            pass
+        return tL
+
+    def __rebuildCache(self, **kwargs):
+        mU = MarshalUtil()
+        #
+        siftsSummaryDirPath = kwargs.get("siftsSummaryDirPath", None)
+        savePath = kwargs.get('saveCachePath', None)
+        saveKwargs = kwargs.get('saveCacheKwargs', {'format': 'pickle'})
+        useCache = kwargs.get('useCache', True)
+        entrySaveLimit = kwargs.get("entrySaveLimit", None)
+        #
+        ssD = {}
+        try:
+            if useCache and savePath and os.access(savePath, os.R_OK):
+                ssD = mU.doImport(savePath, **saveKwargs)
+            else:
+                ssD = self.__getSummaryMapping(siftsSummaryDirPath)
+                if entrySaveLimit:
+                    ssD = {k: ssD[k] for k in list(ssD.keys())[:entrySaveLimit]}
+                ok = mU.doExport(savePath, ssD, **saveKwargs)
+                logger.debug("Saving SIFTS summary serialized data file %s (%d) status %r" % (savePath, len(ssD), ok))
+        except Exception as e:
+            logger.exception("Failing with %s" % str(e))
+        return ssD
+
+    def __getSummaryMapping(self, siftsSummaryDirPath):
         """
         """
         uD = self.__getUniprotChainMapping(siftsSummaryDirPath, 'pdb_chain_uniprot.csv.gz')
@@ -99,8 +148,7 @@ class SiftsUtils(object):
             for chainId, cD in eD.items():
                 uSeqD[entryId][chainId]['GOID'] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
         #
-        mU = MarshalUtil()
-        mU.doExport(outFilePath, uSeqD, format="pickle")
+
         #
         return uSeqD
 
@@ -118,7 +166,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        logger.debug("CSV keys: %r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -138,7 +186,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        logger.debug("CSV keys: %r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -155,7 +203,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        logger.debug("CSV keys: %r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -172,7 +220,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        logger.debug("CSV keys: %r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -189,7 +237,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("CSV keys: %r" % list(rowDL[0].items()))
+        logger.debug("CSV keys: %r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -206,7 +254,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("%r" % list(rowDL[0].items()))
+        logger.debug("%r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
@@ -228,13 +276,13 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("%r" % list(rowDL[0].items()))
+        logger.debug("%r" % list(rowDL[0].items()))
         tD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']
             chainId = rowD['CHAIN']
             taxId = rowD['TAX_ID']
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(taxId)
+            tD.setdefault(entryId, {}).setdefault(chainId, {}).update({taxId: True})
         #
         logger.info("Taxonomy for %d entries" % len(tD))
         return tD
@@ -247,7 +295,7 @@ class SiftsUtils(object):
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS UniProt summary file %s %d" % (csvFileName, len(rowDL)))
-        logger.info("%r" % list(rowDL[0].items()))
+        logger.debug("%r" % list(rowDL[0].items()))
         uD = {}
         for rowD in rowDL:
             entryId = rowD['PDB']

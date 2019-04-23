@@ -30,7 +30,7 @@ logger = logging.getLogger()
 class UniProtUtilsTests(unittest.TestCase):
 
     def setUp(self):
-        self.__export = False
+        self.__export = True
         self.__mU = MarshalUtil()
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), 'rcsb', 'mock-data')
         self.__siftsSummaryPath = os.path.join(self.__dirPath, 'sifts-summary')
