@@ -75,20 +75,20 @@ class UniProtReader(object):
             self.__updateAccessionDict()
             eDict = self.__parse(doc)
         except Exception as e:
-            logger.exception("Failing with %s" % (str(e)))
+            logger.exception("Failing with %s", str(e))
         return eDict
 
     def readString(self, data):
         eDict = {}
         try:
-            logger.debug("Using variants %r" % (self.__variantD))
+            logger.debug("Using variants %r", self.__variantD)
             doc = minidom.parseString(data)
             self.__updateAccessionDict()
-            logger.debug("Using accessionD %r" % (self.__accessionD))
+            logger.debug("Using accessionD %r", self.__accessionD)
             eDict = self.__parse(doc)
-            logger.debug('eDict keys %r' % list(eDict.keys()))
+            logger.debug("eDict keys %r", list(eDict.keys()))
         except Exception as e:
-            logger.exception("Failing with %s" % str(e))
+            logger.exception("Failing with %s", str(e))
 
         return eDict
 
@@ -116,7 +116,7 @@ class UniProtReader(object):
 
     def __parse(self, doc):
         entryDict = {}
-        entryList = doc.getElementsByTagName('entry')
+        entryList = doc.getElementsByTagName("entry")
 
         entryDict = {}
         for entry in entryList:
@@ -125,83 +125,82 @@ class UniProtReader(object):
             if entry.nodeType != entry.ELEMENT_NODE:
                 continue
 
-            dict = {}
-            dict['db_name'] = entry.attributes['dataset'].value
-            dict['version'] = entry.attributes['version'].value
-            dict['modification_date'] = entry.attributes['modified'].value
+            tDict = {}
+            tDict["db_name"] = entry.attributes["dataset"].value
+            tDict["version"] = entry.attributes["version"].value
+            tDict["modification_date"] = entry.attributes["modified"].value
             #
             for node in entry.childNodes:
                 if node.nodeType != node.ELEMENT_NODE:
                     continue
 
-                if node.tagName == 'name':
-                    'Get entry code'
-                    dict['db_code'] = node.firstChild.data
+                if node.tagName == "name":
+                    # Get entry code
+                    tDict["db_code"] = node.firstChild.data
 
-                elif node.tagName == 'accession':
+                elif node.tagName == "accession":
                     # Get entry first accession
-                    if 'db_accession' in dict:
+                    if "db_accession" in tDict:
                         pass
                     else:
-                        dict['db_accession'] = node.firstChild.data
-                    dict.setdefault('accessions', []).append(node.firstChild.data)
-                elif node.tagName == 'sequence':
+                        tDict["db_accession"] = node.firstChild.data
+                    tDict.setdefault("accessions", []).append(node.firstChild.data)
+                elif node.tagName == "sequence":
                     # Get sequence
                     # Sequence must have newlines removed
-                    dict['sequence'] = node.firstChild.data.replace('\n', '')
+                    tDict["sequence"] = node.firstChild.data.replace("\n", "")
 
-                elif node.tagName == 'protein':
-                    self.__getProteinNames(node.childNodes, dict)
+                elif node.tagName == "protein":
+                    self.__getProteinNames(node.childNodes, tDict)
 
-                elif node.tagName == 'gene':
-                    self.__getGeneNames(node.childNodes, dict)
+                elif node.tagName == "gene":
+                    self.__getGeneNames(node.childNodes, tDict)
 
-                elif node.tagName == 'organism':
-                    self.__getSourceOrganism(node.childNodes, dict)
+                elif node.tagName == "organism":
+                    self.__getSourceOrganism(node.childNodes, tDict)
 
-                elif node.tagName == 'dbReference':
-                    self.__getDbReference(node, dict)
+                elif node.tagName == "dbReference":
+                    self.__getDbReference(node, tDict)
 
-                elif node.tagName == 'keyword':
-                    """Get keyword from <keyword id="KW-0181">Complete proteome</keyword>
-                        and concatenate them using comma separator
-                    """
-                    dict.setdefault('keywords', []).append(node.firstChild.data)
-                elif node.tagName == 'comment':
-                    self.__getComments(node, dict)
+                elif node.tagName == "keyword":
+                    # Get keyword from <keyword id="KW-0181">Complete proteome</keyword>
+                    #    and concatenate them using comma separator
+                    tDict.setdefault("keywords", []).append(node.firstChild.data)
+                elif node.tagName == "comment":
+                    self.__getComments(node, tDict)
 
             #
             # This is an improbable situation of entry lacking an accession code.
             #
-            if 'db_accession' not in dict:
+            if "db_accession" not in tDict:
                 continue
 
-            dbAccession = dict['db_accession']
+            dbAccession = tDict["db_accession"]
             # --------------- ---------------  --------------- ---------------  ---------------
             # Add variants if these have been specified --
             #
             vList = self.__getVariantList(dbAccession)
-            if len(vList) > 0 and 'sequence' in dict:
+            if vList and "sequence" in tDict:
                 for vId in vList:
-                    vDict = copy.deepcopy(dict)
+                    vDict = copy.deepcopy(tDict)
                     ok, seqUpdated, isoformD = self.__getIsoFormSeq(doc, vId, vDict)
                     if seqUpdated:
-                        vDict['isoform_sequence_updated'] = 'Y'
+                        vDict["isoform_sequence_updated"] = "Y"
                     else:
-                        vDict['isoform_sequence_updated'] = 'N'
+                        vDict["isoform_sequence_updated"] = "N"
                     if isoformD:
-                        vDict['isoform_names'] = isoformD['names']
-                        if 'isoform_edits' in isoformD:
-                            vDict['isoform_edits'] = isoformD['isoform_edits']
+                        vDict["isoform_names"] = isoformD["names"]
+                        if "isoform_edits" in isoformD:
+                            vDict["isoform_edits"] = isoformD["isoform_edits"]
                     if ok:
-                        vDict['db_isoform'] = vId
+                        vDict["db_isoform"] = vId
                         entryDict[vId] = vDict
             # --------------- ---------------  --------------- ---------------  ---------------
-            entryDict[dict['db_accession']] = dict
+            entryDict[tDict["db_accession"]] = tDict
 
         return entryDict
 
-    def __getDbReference(self, node, dict):
+    def __getDbReference(self, node, tDict):
         """
 
         :param nodelList:
@@ -233,32 +232,32 @@ class UniProtReader(object):
                     <property type="project" value="MGI"/>
 
         """
-        dbType = node.attributes['type'].value
-        dbId = node.attributes['id'].value
-        tD = {'resource': dbType, 'id_code': dbId}
+        dbType = node.attributes["type"].value
+        dbId = node.attributes["id"].value
+        tD = {"resource": dbType, "id_code": dbId}
         #
-        if dbType in ['EC', 'PIR', ]:
-            dict.setdefault('dbReferences', []).append(tD)
-        elif dbType in ['EMBL', 'GO', 'RefSeq', 'Pfam', 'InterPro']:
+        if dbType in ["EC", "PIR"]:
+            tDict.setdefault("dbReferences", []).append(tD)
+        elif dbType in ["EMBL", "GO", "RefSeq", "Pfam", "InterPro"]:
             pD = self.__getProperties(node.childNodes)
             tD.update(pD)
-            dict.setdefault('dbReferences', []).append(tD)
+            tDict.setdefault("dbReferences", []).append(tD)
 
     def __getProperties(self, nodeList):
-        d = {}
+        dD = {}
         try:
             for node in nodeList:
                 if node.nodeType != node.ELEMENT_NODE:
                     continue
-                if node.tagName in ['property']:
-                    pType = node.attributes['type'].value if 'type' in node.attributes else None
-                    if pType and 'value' in node.attributes:
-                        d[pType] = node.attributes['value'].value
+                if node.tagName in ["property"]:
+                    pType = node.attributes["type"].value if "type" in node.attributes else None
+                    if pType and "value" in node.attributes:
+                        dD[pType] = node.attributes["value"].value
         except Exception as e:
-            logger.exception("Failing with %s" % str(e))
-        return d
+            logger.exception("Failing with %s", str(e))
+        return dD
 
-    def __getProteinNames(self, nodeList, dict):
+    def __getProteinNames(self, nodeList, tDict):
         """In content:
               <recommendedName>
                 <fullName>Platelet-derived growth factor subunit B</fullName>
@@ -279,9 +278,9 @@ class UniProtReader(object):
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
-            if node.tagName in ['recommendedName', 'alternativeName', 'submittedName']:
+            if node.tagName in ["recommendedName", "alternativeName", "submittedName"]:
                 nameD = self.__getNames(node.childNodes, nameType=node.tagName)
-                dict.setdefault('names', []).append(nameD)
+                tDict.setdefault("names", []).append(nameD)
 
     def __getNames(self, nodeList, nameType=None):
         """Get names from <fullName> & <shortName> tags:
@@ -289,19 +288,19 @@ class UniProtReader(object):
                 <fullName>Platelet-derived growth factor subunit B</fullName>
                 <shortName>PDGF subunit B</shortName>
         """
-        d = {}
+        dD = {}
         for node in nodeList:
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
-            if node.tagName in ['fullName', 'shortName']:
-                d['name'] = node.firstChild.data
-                d['isAbbrev'] = True if node.tagName == 'shortName' else False
-                d['nameType'] = nameType
+            if node.tagName in ["fullName", "shortName"]:
+                dD["name"] = node.firstChild.data
+                dD["isAbbrev"] = True if node.tagName == "shortName" else False
+                dD["nameType"] = nameType
 
-        return d
+        return dD
 
-    def __getGeneNames(self, nodeList, dict):
+    def __getGeneNames(self, nodeList, tDict):
         """Get genes from
               <gene>
                 <name type="primary">PDGFB</name>
@@ -314,11 +313,11 @@ class UniProtReader(object):
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
-            if node.tagName == 'name':
-                type = node.attributes['type'].value
-                dict.setdefault('gene', []).append({'name': node.firstChild.data, 'type': type})
+            if node.tagName == "name":
+                tType = node.attributes["type"].value
+                tDict.setdefault("gene", []).append({"name": node.firstChild.data, "type": tType})
 
-    def __getSourceOrganism(self, nodeList, dict):
+    def __getSourceOrganism(self, nodeList, tDict):
         """Get organism's scientific name, common name and NCBI Taxonomy ID from
                <name type="scientific">Homo sapiens</name>
                <name type="common">Human</name>
@@ -328,20 +327,20 @@ class UniProtReader(object):
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
-            if node.tagName == 'name':
-                type = node.attributes['type']
-                if type:
-                    if type.value == 'scientific':
-                        dict['source_scientific'] = node.firstChild.data
-                    elif type.value == 'common':
-                        dict['source_common'] = node.firstChild.data
+            if node.tagName == "name":
+                tType = node.attributes["type"]
+                if tType:
+                    if tType.value == "scientific":
+                        tDict["source_scientific"] = node.firstChild.data
+                    elif tType.value == "common":
+                        tDict["source_common"] = node.firstChild.data
 
-            elif node.tagName == 'dbReference':
-                type = node.attributes['type']
-                if type and type.value == 'NCBI Taxonomy':
-                    dict['taxonomy_id'] = int(node.attributes['id'].value)
+            elif node.tagName == "dbReference":
+                tType = node.attributes["type"]
+                if tType and tType.value == "NCBI Taxonomy":
+                    tDict["taxonomy_id"] = int(node.attributes["id"].value)
 
-    def __getComments(self, node, dict):
+    def __getComments(self, node, tDict):
         """From
               <comment type="function">
                 <text>Platelet-derived .... </text>
@@ -364,11 +363,11 @@ class UniProtReader(object):
            Comments from <comment type="online information"> will be ignored.
         """
 
-        type = node.attributes['type']
-        if type and type.value != 'online information':
+        tType = node.attributes["type"]
+        if tType and tType.value != "online information":
             text = self.__getText(node.childNodes)
             if text is not None:
-                dict.setdefault('comments', []).append({'type': type.value, 'text': text})
+                tDict.setdefault("comments", []).append({"type": tType.value, "text": text})
 
     def __getText(self, nodeList):
         """Get text value from
@@ -377,19 +376,19 @@ class UniProtReader(object):
         for node in nodeList:
             if node.nodeType != node.ELEMENT_NODE:
                 continue
-            if node.tagName == 'text':
+            if node.tagName == "text":
                 return node.firstChild.data
         return None
 
-    def __getIsoFormSeq(self, doc, vId, dict):
+    def __getIsoFormSeq(self, doc, vId, tDict):
         """Get isoform sequence for vId if it exists  -
 
            Returns: bool, bool, isoformD  status, sequenceUpdatedFlag, isoform name/type Dictionary
         """
-        logger.debug("Starting vId %s" % vId)
+        logger.debug("Starting vId %s", vId)
         try:
             isoformdic = self.__getIsoFormIds(doc)
-            logger.debug("vId %s isoformdic  %r" % (vId, isoformdic.items()))
+            logger.debug("vId %s isoformdic  %r", vId, isoformdic.items())
 
             if not isoformdic:
                 return False, False, None
@@ -398,31 +397,31 @@ class UniProtReader(object):
                 return False, False, None
 
             # JDW 12-DEC-2015  Remove this test for a reference - Finding isoform data in comments lacking this
-            if isoformdic[vId]['type'] == 'displayed' or 'ref' not in isoformdic[vId]:
+            if isoformdic[vId]["type"] == "displayed" or "ref" not in isoformdic[vId]:
                 # return True, False
                 return True, False, isoformdic[vId]
 
             refdic = self.__getIsoFormRefs(doc)
-            logger.debug(" vId %s refdic  %r" % (vId, refdic.items()))
+            logger.debug(" vId %s refdic  %r", vId, refdic.items())
 
             if not refdic:
                 # return with sequence updated = False
                 return True, False, isoformdic[vId]
 
-            reflist = isoformdic[vId]['ref'].split(' ')
+            reflist = isoformdic[vId]["ref"].split(" ")
             # Reverse the ref list order so that sequence manipulation starts from C-terminal
             reflist.reverse()
-            isoform_edits = []
+            isoformEdits = []
             for ref in reflist:
                 if ref in refdic:
-                    dict['sequence'] = self.___processIsoFormSeq(dict['sequence'], refdic[ref])
-                    isoform_edits.append(refdic[ref])
-            if isoform_edits:
-                isoformdic[vId]['isoform_edits'] = isoform_edits
+                    tDict["sequence"] = self.__processIsoFormSeq(tDict["sequence"], refdic[ref])
+                    isoformEdits.append(refdic[ref])
+            if isoformEdits:
+                isoformdic[vId]["isoform_edits"] = isoformEdits
             # return with seqquence updated = True
             return True, True, isoformdic[vId]
         except Exception as e:
-            logger.exception("Failing with vId %s %s" % (vId, str(e)))
+            logger.exception("Failing with vId %s %s", vId, str(e))
 
         return False, False, None
 
@@ -446,46 +445,46 @@ class UniProtReader(object):
                { 'P42284-2' : { 'type' : 'displayed'},
                  'P42284-3' : { 'type' : 'described', 'ref' : 'VSP_015404 VSP_015406' } }
         """
-        dic = {}
-        entryList = doc.getElementsByTagName('isoform')
+        tDict = {}
+        entryList = doc.getElementsByTagName("isoform")
         if not entryList:
-            return dic
+            return tDict
 
         for node in entryList:
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
             # id = None
-            id = []
+            tId = []
             names = []
-            type = None
+            tType = None
             ref = None
             for node1 in node.childNodes:
                 if node1.nodeType != node1.ELEMENT_NODE:
                     continue
-                if node1.tagName == 'id':
-                    id.append(node1.firstChild.data)
-                elif node1.tagName == 'name':
+                if node1.tagName == "id":
+                    tId.append(node1.firstChild.data)
+                elif node1.tagName == "name":
                     names.append(node1.firstChild.data)
-                elif node1.tagName == 'sequence':
-                    type = node1.attributes['type'].value
+                elif node1.tagName == "sequence":
+                    tType = node1.attributes["type"].value
                     # JDW Aug-26 The following is behaving badly  --
                     try:
-                        if 'ref' in node1.attributes:
-                            ref = node1.attributes['ref'].value
+                        if "ref" in node1.attributes:
+                            ref = node1.attributes["ref"].value
                     except Exception:
                         pass
 
-            if len(id) < 1 or not type:
+            if not tId or not tType:
                 continue
-            d = {}
-            d['type'] = type
-            d['names'] = names
+            dD = {}
+            dD["type"] = tType
+            dD["names"] = names
             if ref:
-                d['ref'] = ref
-            dic[id[0]] = d
+                dD["ref"] = ref
+            tDict[tId[0]] = dD
 
-        return dic
+        return tDict
 
     def __getIsoFormRefs(self, doc):
         """Get variant information from
@@ -511,7 +510,7 @@ class UniProtReader(object):
                  'VSP_015406' : { 'begin' : '519', 'end' : '549' } }
         """
         dic = {}
-        entryList = doc.getElementsByTagName('feature')
+        entryList = doc.getElementsByTagName("feature")
         if not entryList:
             return dic
 
@@ -519,51 +518,51 @@ class UniProtReader(object):
             if node.nodeType != node.ELEMENT_NODE:
                 continue
 
-            if node.attributes['type'].value != 'splice variant':
+            if node.attributes["type"].value != "splice variant":
                 continue
 
-            if 'id' not in node.attributes:
+            if "id" not in node.attributes:
                 continue
 
-            id = node.attributes['id'].value
+            tId = node.attributes["id"].value
             begin = None
             end = None
             variation = None
             for node1 in node.childNodes:
                 if node1.nodeType != node1.ELEMENT_NODE:
                     continue
-                if node1.tagName == 'variation':
-                    variation = node1.firstChild.data.replace('\n', '')
-                elif node1.tagName == 'location':
+                if node1.tagName == "variation":
+                    variation = node1.firstChild.data.replace("\n", "")
+                elif node1.tagName == "location":
                     for node2 in node1.childNodes:
                         if node2.nodeType != node2.ELEMENT_NODE:
                             continue
-                        if node2.tagName == 'begin':
-                            begin = node2.attributes['position'].value
-                        elif node2.tagName == 'end':
-                            end = node2.attributes['position'].value
+                        if node2.tagName == "begin":
+                            begin = node2.attributes["position"].value
+                        elif node2.tagName == "end":
+                            end = node2.attributes["position"].value
 
             if not begin or not end:
                 continue
-            d = {}
-            d['begin'] = begin
-            d['end'] = end
+            dD = {}
+            dD["begin"] = begin
+            dD["end"] = end
             if variation:
-                d['variation'] = variation
-            dic[id] = d
+                dD["variation"] = variation
+            dic[tId] = dD
 
         return dic
 
-    def ___processIsoFormSeq(self, seq, ref):
+    def __processIsoFormSeq(self, seq, ref):
         """Manipulate sequence using information from dictionary ref:
 
                { 'begin' : '455', 'end' : '518', 'variation' : 'DEAGQNEGG....' }
         """
-        begin = int(ref['begin']) - 1
-        end = int(ref['end'])
+        begin = int(ref["begin"]) - 1
+        end = int(ref["end"])
         seq1 = seq[0:begin]
-        if 'variation' in ref:
-            seq1 += ref['variation']
+        if "variation" in ref:
+            seq1 += ref["variation"]
         seq1 += seq[end:]
         return seq1
 
@@ -573,4 +572,4 @@ class UniProtReader(object):
             if ss in string.whitespace:
                 continue
             sL.append(ss)
-        return ''.join(sL)
+        return "".join(sL)

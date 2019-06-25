@@ -1,9 +1,5 @@
 # RCSB_UTILS_SEQ HISTORY
-
   11-Dec-2018  - V0.10 Created module supporting PDB - UniProt mapping using SIFTS
   19-Mar-2019    V0.11 Incorporate UniProt feature extraction tools.
   22-Apr-2019    V0.12 Improve cache management, broaden test coverage
-
-
-
-
+  24-Jun-2019    V0.13 Update developmemt workflow

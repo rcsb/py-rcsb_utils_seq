@@ -29,7 +29,7 @@ class UniProtUtils(object):
     """
 
     def __init__(self, **kwargs):
-        self.__saveText = kwargs.get('saveText', False)
+        self.__saveText = kwargs.get("saveText", False)
         self.__dataList = []
         #
 
@@ -51,60 +51,60 @@ class UniProtUtils(object):
             #
             searchIdList, variantD = self.__processIdList(idList)
 
-            logger.debug("input id list %s" % idList)
-            logger.debug("search   list %s" % searchIdList)
-            logger.debug("variants      %s" % variantD.items())
+            logger.debug("input id list %s", idList)
+            logger.debug("search   list %s", searchIdList)
+            logger.debug("variants      %s", variantD.items())
 
-            if not searchIdList or len(searchIdList) == 0:
+            if searchIdList is None or not searchIdList:
                 return resultD, matchD
             #
-            matchD = {inpId: {'searchId': searchIdList[ii]} for ii, inpId in enumerate(idList)}
+            matchD = {inpId: {"searchId": searchIdList[ii]} for ii, inpId in enumerate(idList)}
             #
             searchIdList = list(set(searchIdList))
             subLists = self.__makeSubLists(maxChunkSize, searchIdList)
             numLists = len(searchIdList) / maxChunkSize + 1
 
             for ii, subList in enumerate(subLists):
-                logger.debug("Fetching subList %r" % subList)
-                logger.info("Starting fetching for sublist %d/%d" % (ii + 1, numLists))
+                logger.debug("Fetching subList %r", subList)
+                logger.info("Starting fetching for sublist %d/%d", ii + 1, numLists)
                 #
                 ok, xmlText = self.__doRequest(subList)
-                logger.debug("Status %r" % ok)
+                logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
                 #
-                if ((xmlText is not None) and not xmlText.startswith("ERROR")):
+                if (xmlText is not None) and not xmlText.startswith("ERROR"):
                     tD = self.__parseText(xmlText, variantD)
                     resultD.update(tD)
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
-                    logger.info("Fetch %r status %r text %r" % (subList, ok, xmlText))
+                    logger.info("Fetch %r status %r text %r", subList, ok, xmlText)
 
             #
             # Create a match dictionary for the input id list -
             #
-            for inpId, sD in matchD.items():
-                if 'matched' in sD:
+            for _, sD in matchD.items():
+                if "matched" in sD:
                     continue
-                if sD['searchId'] in resultD:
-                    sD.setdefault('matchedIds', []).append(sD['searchId'])
-                    sD['matched'] = 'primary'
+                if sD["searchId"] in resultD:
+                    sD.setdefault("matchedIds", []).append(sD["searchId"])
+                    sD["matched"] = "primary"
                 else:
-                    for rId, rD in resultD.items():
-                        if sD['searchId'] in rD['accessions']:
-                            sD.setdefault('matchedIds', []).append(sD['searchId'])
-                            sD['matched'] = 'secondary'
-                    if 'matched' not in sD:
-                        sD['matched'] = 'none'
+                    for _, rD in resultD.items():
+                        if sD["searchId"] in rD["accessions"]:
+                            sD.setdefault("matchedIds", []).append(sD["searchId"])
+                            sD["matched"] = "secondary"
+                    if "matched" not in sD:
+                        sD["matched"] = "none"
 
         except Exception as e:
-            logger.exception("Failing with %s" % str(e))
+            logger.exception("Failing with %s", str(e))
 
         return resultD, matchD
 
     def writeUnpXml(self, filePath):
-        with open(filePath, 'w') as ofh:
+        with open(filePath, "w") as ofh:
             for data in self.__dataList:
                 ofh.write(data)
 
@@ -120,12 +120,12 @@ class UniProtUtils(object):
         retD = {}
         ur = UniProtReader()
         try:
-            logger.debug("variantD %r" % variantD)
+            logger.debug("variantD %r", variantD)
             for vId, aId in variantD.items():
                 ur.addVariant(aId, vId)
             retD = ur.readString(xmlText)
         except Exception as e:
-            logger.exception("Failing with %s" % str(e))
+            logger.exception("Failing with %s", str(e))
         return retD
 
     def __doRequest(self, idList, retryAltApi=True):
@@ -139,25 +139,21 @@ class UniProtUtils(object):
     def __doRequestPrimary(self, idList):
         """
         """
-        baseUrl = 'http://www.uniprot.org'
-        endPoint = 'uploadlists'
+        baseUrl = "http://www.uniprot.org"
+        endPoint = "uploadlists"
         hL = [("Accept", "application/xml")]
-        pD = {'from': 'ACC+ID',
-              'to': 'ACC',
-              'format': 'xml',
-              'query': ' '.join(idList)
-              }
+        pD = {"from": "ACC+ID", "to": "ACC", "format": "xml", "query": " ".join(idList)}
         ureq = UrlRequestUtil()
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
 
     def __doRequestSecondary(self, idList):
-        baseUrl = 'https://www.ebi.ac.uk'
-        endPoint = 'proteins/api/proteins'
+        baseUrl = "https://www.ebi.ac.uk"
+        endPoint = "proteins/api/proteins"
         #
         hL = [("Accept", "application/xml")]
         pD = {}
-        pD['size'] = '-1'
-        pD['accession'] = ','.join(idList)
+        pD["size"] = "-1"
+        pD["accession"] = ",".join(idList)
         ureq = UrlRequestUtil()
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
 
@@ -171,24 +167,24 @@ class UniProtUtils(object):
         variantD = {}
         tList = []
         #
-        for id in idList:
+        for tId in idList:
             # check for variant id
-            idx = id.find('-')
+            idx = tId.find("-")
             if idx == -1:
-                sId = id
+                sId = tId
             else:
-                sId = id[0:idx]
-                variantD[id] = sId
+                sId = tId[0:idx]
+                variantD[tId] = sId
             #
             tList.append(sId)
         #
         #
         return tList, variantD
 
-    def __makeSubLists(self, n, iterable):
-        args = [iter(iterable)] * n
+    def __makeSubLists(self, num, iterable):
+        args = [iter(iterable)] * num
         return ([e for e in t if e is not None] for t in zip_longest(*args))
 
-    def __makeSubListsWithPadding(self, n, iterable, padvalue=None):
+    def __makeSubListsWithPadding(self, num, iterable, padvalue=None):
         "__sublist(3, 'abcdefg', 'x') --> ('a','b','c'), ('d','e','f'), ('g','x','x')"
-        return zip_longest(*[iter(iterable)] * n, fillvalue=padvalue)
+        return zip_longest(*[iter(iterable)] * num, fillvalue=padvalue)

@@ -32,45 +32,43 @@ logger = logging.getLogger()
 
 
 class SiftsUtilsTests(unittest.TestCase):
-
     def setUp(self):
-        self.__dirPath = os.path.join(os.path.dirname(TOPDIR), 'rcsb', 'mock-data')
-        self.__siftsSummaryPath = os.path.join(self.__dirPath, 'sifts-summary')
+        self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
+        self.__siftsSummaryPath = os.path.join(self.__dirPath, "sifts-summary")
         #
-        self.__siftsCacheFile = os.path.join(HERE, 'test-output', 'sifts_consolidated_mapping.pic')
-        self.__siftsCacheJsonFile = os.path.join(HERE, 'test-output', 'sifts_consolidated_mapping.json')
+        self.__siftsCacheFile = os.path.join(HERE, "test-output", "sifts_consolidated_mapping.pic")
+        self.__siftsCacheJsonFile = os.path.join(HERE, "test-output", "sifts_consolidated_mapping.json")
         #
         self.__startTime = time.time()
-        logger.debug("Starting %s at %s" % (self.id(),
-                                            time.strftime("%Y %m %d %H:%M:%S", time.localtime())))
+        logger.debug("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
 
     def tearDown(self):
         endTime = time.time()
-        logger.info("Completed %s at %s (%.4f seconds)\n" % (self.id(),
-                                                             time.strftime("%Y %m %d %H:%M:%S", time.localtime()),
-                                                             endTime - self.__startTime))
+        logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
     def testWriteSiftsSummaryCache(self):
         su = SiftsUtils(siftsSummaryDirPath=self.__siftsSummaryPath, saveCachePath=self.__siftsCacheFile, useCache=False)
         eCount = su.getEntryCount()
-        logger.info("SIFTS entry count %d" % eCount)
+        logger.info("SIFTS entry count %d", eCount)
         self.assertGreaterEqual(eCount, 140000)
 
     def testWriteSiftsSummaryCacheJson(self):
         entrySaveLimit = 50
-        su = SiftsUtils(siftsSummaryDirPath=self.__siftsSummaryPath,
-                        saveCachePath=self.__siftsCacheJsonFile,
-                        saveCacheKwargs={'format': 'json', 'indent': 3},
-                        useCache=False,
-                        entrySaveLimit=entrySaveLimit)
+        su = SiftsUtils(
+            siftsSummaryDirPath=self.__siftsSummaryPath,
+            saveCachePath=self.__siftsCacheJsonFile,
+            saveCacheKwargs={"fmt": "json", "indent": 3},
+            useCache=False,
+            entrySaveLimit=entrySaveLimit,
+        )
         eCount = su.getEntryCount()
-        logger.info("SIFTS entry count %d" % eCount)
+        logger.info("SIFTS entry count %d", eCount)
         self.assertGreaterEqual(eCount, entrySaveLimit)
 
     def testReadSiftsSummaryCache(self):
         su = SiftsUtils(saveCachePath=self.__siftsCacheFile, useCache=True)
         eCount = su.getEntryCount()
-        logger.info("SIFTS entry count %d" % eCount)
+        logger.info("SIFTS entry count %d", eCount)
 
 
 def readSiftsInfo():
@@ -81,8 +79,6 @@ def readSiftsInfo():
     return suiteSelect
 
 
-if __name__ == '__main__':
-
-    if True:
-        mySuite = readSiftsInfo()
-        unittest.TextTestRunner(verbosity=2).run(mySuite)
+if __name__ == "__main__":
+    mySuite = readSiftsInfo()
+    unittest.TextTestRunner(verbosity=2).run(mySuite)
