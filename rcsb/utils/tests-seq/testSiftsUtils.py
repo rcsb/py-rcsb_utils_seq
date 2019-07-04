@@ -40,18 +40,23 @@ class SiftsUtilsTests(unittest.TestCase):
         self.__siftsCacheJsonFile = os.path.join(HERE, "test-output", "sifts_consolidated_mapping.json")
         #
         self.__startTime = time.time()
-        logger.debug("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
+        logger.info("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
 
     def tearDown(self):
         endTime = time.time()
         logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
-    def testWriteSiftsSummaryCache(self):
+    def testWriteReadSiftsSummaryCache(self):
         su = SiftsUtils(siftsSummaryDirPath=self.__siftsSummaryPath, saveCachePath=self.__siftsCacheFile, useCache=False)
-        eCount = su.getEntryCount()
-        logger.info("SIFTS entry count %d", eCount)
-        self.assertGreaterEqual(eCount, 140000)
+        eCountW = su.getEntryCount()
+        logger.info("SIFTS entry count %d", eCountW)
+        self.assertGreaterEqual(eCountW, 140000)
+        su = SiftsUtils(saveCachePath=self.__siftsCacheFile, useCache=True)
+        eCountR = su.getEntryCount()
+        logger.info("SIFTS entry count %d", eCountR)
+        self.assertEqual(eCountW, eCountR)
 
+    @unittest.skip("Skipping long test")
     def testWriteSiftsSummaryCacheJson(self):
         entrySaveLimit = 50
         su = SiftsUtils(
@@ -65,17 +70,11 @@ class SiftsUtilsTests(unittest.TestCase):
         logger.info("SIFTS entry count %d", eCount)
         self.assertGreaterEqual(eCount, entrySaveLimit)
 
-    def testReadSiftsSummaryCache(self):
-        su = SiftsUtils(saveCachePath=self.__siftsCacheFile, useCache=True)
-        eCount = su.getEntryCount()
-        logger.info("SIFTS entry count %d", eCount)
-
 
 def readSiftsInfo():
     suiteSelect = unittest.TestSuite()
-    suiteSelect.addTest(SiftsUtilsTests("testWriteSiftsSummaryCacheJson"))
-    suiteSelect.addTest(SiftsUtilsTests("testWriteSiftsSummaryCache"))
-    suiteSelect.addTest(SiftsUtilsTests("testReadSiftsSummaryCache"))
+    # suiteSelect.addTest(SiftsUtilsTests("testWriteSiftsSummaryCacheJson"))
+    suiteSelect.addTest(SiftsUtilsTests("testWriteReadSiftsSummaryCache"))
     return suiteSelect
 
 
