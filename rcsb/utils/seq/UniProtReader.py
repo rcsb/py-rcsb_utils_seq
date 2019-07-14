@@ -7,7 +7,13 @@
 import copy
 import logging
 import string
+import sys
 from xml.dom import minidom
+
+if sys.version_info.major < 3:
+    # Missing method in the py27 minidom breaks 'in' operations
+    if not hasattr(minidom.NamedNodeMap, "__contains__"):
+        minidom.NamedNodeMap.__contains__ = minidom.NamedNodeMap.has_key  # pylint: disable=no-member
 
 logger = logging.getLogger(__name__)
 
@@ -250,9 +256,8 @@ class UniProtReader(object):
                 if node.nodeType != node.ELEMENT_NODE:
                     continue
                 if node.tagName in ["property"]:
-                    pType = node.attributes["type"].value if "type" in node.attributes else None
-                    if pType and "value" in node.attributes:
-                        dD[pType] = node.attributes["value"].value
+                    if node.attributes and "type" in node.attributes and "value" in node.attributes:
+                        dD[node.attributes["type"].value] = node.attributes["value"].value
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return dD

@@ -3,3 +3,4 @@
   19-Mar-2019    V0.11 Incorporate UniProt feature extraction tools.
   22-Apr-2019    V0.12 Improve cache management, broaden test coverage
   24-Jun-2019    V0.13 Update developmemt workflow
+  14-Jul-2019    V0.14 Fix py27 minidom issue with 'in' operation.
