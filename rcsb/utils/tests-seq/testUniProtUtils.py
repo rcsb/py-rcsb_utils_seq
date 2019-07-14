@@ -32,7 +32,6 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__export = True
         self.__mU = MarshalUtil()
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
-        self.__siftsSummaryPath = os.path.join(self.__dirPath, "sifts-summary")
         #
         self.__workPath = os.path.join(HERE, "test-output")
         # Pick up site information from the environment or failover to the development site id.

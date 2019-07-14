@@ -47,7 +47,7 @@ class SiftsUtilsTests(unittest.TestCase):
         endTime = time.time()
         logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
-    @unittest.skipIf(platform.system() != "Darwin", "Skip long development troubleshooting test")
+    @unittest.skip("Skip long development troubleshooting test")
     def testWriteReadSiftsSummaryCache(self):
         su = SiftsUtils(siftsSummaryDirPath=self.__siftsSummaryPath, saveCachePath=self.__siftsCacheFile, useCache=False)
         eCountW = su.getEntryCount()
