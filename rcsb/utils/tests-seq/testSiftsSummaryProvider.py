@@ -55,6 +55,14 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         eCountR = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountR)
         self.assertEqual(eCountW, eCountR)
+        unpIdL = su.getIdentifiers("102M", "A", "UNPID")
+        self.assertEqual(len(unpIdL), 1)
+        pfamIdL = su.getIdentifiers("102M", "A", "PFAMID")
+        self.assertEqual(len(pfamIdL), 1)
+        iproIdL = su.getIdentifiers("102M", "A", "IPROID")
+        self.assertEqual(len(iproIdL), 4)
+        logger.debug("unpIdl %r pfamIdL %r iprodL %r", unpIdL, pfamIdL, iproIdL)
+
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
 
     @unittest.skipIf(platform.system() != "Darwin", "Skip long development troubleshooting test")

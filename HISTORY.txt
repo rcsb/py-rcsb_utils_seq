@@ -5,3 +5,4 @@
   24-Jun-2019    V0.13 Update developmemt workflow
   14-Jul-2019    V0.14 Fix py27 minidom issue with 'in' operation.
    9-Sep-2019    V0.15 Add SiftsUtils() -> SiftsSummaryProvider()
+  10-Sep-2019    V0.16 Convert case on PDB accession codes

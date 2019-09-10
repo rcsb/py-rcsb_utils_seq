@@ -54,12 +54,13 @@ class SiftsSummaryProvider(object):
     def getIdentifiers(self, entryId, authAsymId, idType=None):
         aL = []
         try:
-            if idType in ["PFAMID", "GOID", "IPROID", "TAXID"]:
-                aL = self.__ssD[entryId][authAsymId][idType:]
+            if idType in ["UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+                aL = self.__ssD[entryId][authAsymId][idType]
+                logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", entryId, authAsymId, idType, aL)
             else:
-                logger.error("Unsupported IdType %r", idType)
-        except Exception:
-            pass
+                logger.error("Unsupported SIFTS idType %r", idType)
+        except Exception as e:
+            logger.debug("Failing with %s", str(e))
         return aL
 
     def getTaxIds(self, entryId, authAsymId):
@@ -115,17 +116,17 @@ class SiftsSummaryProvider(object):
 
         _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
-        logger.info("uSeqD %d", len(uSeqD))
+        logger.debug("uSeqD %d", len(uSeqD))
         #
         tD = self.__getPfamChainMapping(siftsSummaryDirPath, "pdb_chain_pfam.csv.gz")
-        logger.info("PFAM mapping length %d", len(tD))
+        logger.info("SIFTS PFAM mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["PFAMID"] = list(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
         #
         tD = self.__getInterProChainMapping(siftsSummaryDirPath, "pdb_chain_interpro.csv.gz")
-        logger.info("InterPro mapping length %d", len(tD))
+        logger.info("SIFTS InterPro mapping length %d", len(tD))
         #
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
@@ -136,33 +137,33 @@ class SiftsSummaryProvider(object):
         # --------------------
         #
         tD = self.__getGoIdChainMapping(siftsSummaryDirPath, "pdb_chain_go.csv.gz")
-        logger.info("GO mapping length %d", len(tD))
+        logger.info("SIFTS GO mapping length %d", len(tD))
         #
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["GOID"] = list(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
         tD = self.__getTaxonomnyChainMapping(siftsSummaryDirPath, "pdb_chain_taxonomy.csv.gz")
-        logger.info("Taxonomy mapping length %d", len(tD))
+        logger.info("SIFTS Taxonomy mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["TAXID"] = list(tD[entryId][chainId].keys()) if entryId in tD and chainId in tD[entryId] else []
         #
         tD = self.__getCathChainMapping(siftsSummaryDirPath, "pdb_chain_cath_uniprot.csv.gz")
-        logger.info("CATH mappinglength %d", len(tD))
+        logger.info("SIFTS CATH mappinglength %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["CATHID"] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
 
         tD = self.__getScopChainMapping(siftsSummaryDirPath, "pdb_chain_scop_uniprot.csv.gz")
-        logger.info("SCOP mapping length %d", len(tD))
+        logger.info("SIFTS SCOP mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["SCOPID"] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
         #
 
         tD = self.__getEnzymeChainMapping(siftsSummaryDirPath, "pdb_chain_enzyme.csv.gz")
-        logger.info("EC mapping length %d", len(tD))
+        logger.info("SIFTS EC mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["ECID"] = tD[entryId][chainId] if entryId in tD and chainId in tD[entryId] else []
@@ -192,7 +193,7 @@ class SiftsSummaryProvider(object):
             evidenceCode = rowD["EVIDENCE"]
             goId = rowD["GO_ID"]
             dD = {"GO_ID": goId, "EV": evidenceCode, "PROV": prov}
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(dD)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(dD)
         logger.info("GO data for %d entries", len(tD))
         return tD
 
@@ -216,7 +217,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             goId = rowD["GO_ID"]
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(goId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(goId)
         logger.info("GO data for %d entries", len(tD))
         return tD
 
@@ -233,7 +234,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             interProId = rowD["INTERPRO_ID"]
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(interProId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(interProId)
         logger.info("InterPro data for %d entries", len(tD))
         return tD
 
@@ -250,7 +251,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             pfamId = rowD["PFAM_ID"]
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(pfamId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(pfamId)
         logger.info("PFAM data for %d entries", len(tD))
         return tD
 
@@ -267,7 +268,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             ecId = rowD["EC_NUMBER"]
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(ecId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(ecId)
         logger.info("EC data for %d entries", len(tD))
         return tD
 
@@ -284,7 +285,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             cathId = rowD["CATH_ID"]
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(cathId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(cathId)
         logger.info("CATH data for %d entries", len(tD))
         return tD
 
@@ -302,7 +303,7 @@ class SiftsSummaryProvider(object):
             chainId = rowD["CHAIN"]
             scopId = rowD["SCOP_ID"]
             #
-            tD.setdefault(entryId, {}).setdefault(chainId, []).append(scopId)
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(scopId)
         #
         logger.info("SCOP data for %d entries", len(tD))
         return tD
@@ -323,7 +324,7 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             taxId = rowD["TAX_ID"]
-            tD.setdefault(entryId, {}).setdefault(chainId, {}).update({taxId: True})
+            tD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).update({taxId: True})
         #
         logger.info("Taxonomy for %d entries", len(tD))
         return tD
@@ -354,8 +355,8 @@ class SiftsSummaryProvider(object):
             # data.setdefault("system", {})["name"] = platform.system()
             #
             dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
-            uD.setdefault(entryId, {}).setdefault(chainId, {}).setdefault("AL", []).append(dD)
-            uIdD.setdefault(entryId, {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
+            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("AL", []).append(dD)
+            uIdD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
             #
         logger.info("UniProt mapping for %d entries", len(uD))
         # -----
