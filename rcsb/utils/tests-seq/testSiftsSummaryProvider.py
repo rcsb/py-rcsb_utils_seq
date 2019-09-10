@@ -1,5 +1,5 @@
 ##
-# File:    SiftsUtilsTests.py
+# File:    SiftsSummaryProviderTests.py
 # Author:  J. Westbrook
 # Date:    11-Dec-2018
 #
@@ -23,7 +23,7 @@ import platform
 import time
 import unittest
 
-from rcsb.utils.seq.SiftsUtils import SiftsUtils
+from rcsb.utils.seq.SiftsSummaryProvider import SiftsSummaryProvider
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 TOPDIR = os.path.dirname(os.path.dirname(HERE))
@@ -32,13 +32,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(mo
 logger = logging.getLogger()
 
 
-class SiftsUtilsTests(unittest.TestCase):
+class SiftsSummaryProviderTests(unittest.TestCase):
     def setUp(self):
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
-        self.__siftsSummaryPath = os.path.join(self.__dirPath, "sifts-summary")
-        #
-        self.__siftsCacheFile = os.path.join(HERE, "test-output", "sifts_consolidated_mapping.pic")
-        self.__siftsCacheJsonFile = os.path.join(HERE, "test-output", "sifts_consolidated_mapping.json")
+        self.__srcDirPath = os.path.join(self.__dirPath, "sifts-summary")
+        self.__cacheDirPath = os.path.join(HERE, "test-output", "sifts-summary")
         #
         self.__startTime = time.time()
         logger.info("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
@@ -47,26 +45,28 @@ class SiftsUtilsTests(unittest.TestCase):
         endTime = time.time()
         logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
-    @unittest.skip("Skip long development troubleshooting test")
     def testWriteReadSiftsSummaryCache(self):
-        su = SiftsUtils(siftsSummaryDirPath=self.__siftsSummaryPath, saveCachePath=self.__siftsCacheFile, useCache=False)
+        su = SiftsSummaryProvider(srcDirPath=self.__srcDirPath, cacheDirPath=self.__cacheDirPath, useCache=False, abbreviated=True)
         eCountW = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountW)
         self.assertGreaterEqual(eCountW, 140000)
-        su = SiftsUtils(saveCachePath=self.__siftsCacheFile, useCache=True)
+        logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
+        su = SiftsSummaryProvider(cacheDirPath=self.__cacheDirPath, useCache=True)
         eCountR = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountR)
         self.assertEqual(eCountW, eCountR)
+        logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
 
     @unittest.skipIf(platform.system() != "Darwin", "Skip long development troubleshooting test")
     def testWriteSiftsSummaryCacheJson(self):
         entrySaveLimit = 50
-        su = SiftsUtils(
-            siftsSummaryDirPath=self.__siftsSummaryPath,
-            saveCachePath=self.__siftsCacheJsonFile,
-            saveCacheKwargs={"fmt": "json", "indent": 3},
+        su = SiftsSummaryProvider(
+            srcDirPath=self.__srcDirPath,
+            cacheDirPath=self.__cacheDirPath,
+            cacheKwargs={"fmt": "json", "indent": 3},
             useCache=False,
             entrySaveLimit=entrySaveLimit,
+            abbreviated=False,
         )
         eCount = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCount)
@@ -75,8 +75,8 @@ class SiftsUtilsTests(unittest.TestCase):
 
 def readSiftsInfo():
     suiteSelect = unittest.TestSuite()
-    # suiteSelect.addTest(SiftsUtilsTests("testWriteSiftsSummaryCacheJson"))
-    suiteSelect.addTest(SiftsUtilsTests("testWriteReadSiftsSummaryCache"))
+    # suiteSelect.addTest(SiftsSummaryProviderTests("testWriteSiftsSummaryCacheJson"))
+    suiteSelect.addTest(SiftsSummaryProviderTests("testWriteReadSiftsSummaryCache"))
     return suiteSelect
 
 
