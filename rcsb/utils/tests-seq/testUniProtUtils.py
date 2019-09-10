@@ -36,7 +36,7 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__workPath = os.path.join(HERE, "test-output")
         # Pick up site information from the environment or failover to the development site id.
         #
-        self.__unpIdList1 = ["P20937", "P21877", "P22868", "P23832", "P25665", "P26562", "P27614"]
+        self.__unpIdList1 = ["P20937", "P21877", "P22868", "P23832"]
         self.__unpIdList2 = [
             "P29490",
             "P29496",
@@ -108,11 +108,8 @@ class UniProtUtilsTests(unittest.TestCase):
             "P29991",
             "P29994",
         ]
-
-        self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3", "P29994-1", "P29994-2", "P29994-3", "P29994-4", "P29994-5", "P29994-6", "P29994-7"]
-
-    def tearDown(self):
-        pass
+        # self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3", "P29994-1", "P29994-2", "P29994-3", "P29994-4", "P29994-5", "P29994-6", "P29994-7"]
+        self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3"]
 
     def testFetchIds(self):
         """ Test individual entry fetch
