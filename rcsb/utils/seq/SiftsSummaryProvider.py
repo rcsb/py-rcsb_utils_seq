@@ -54,7 +54,7 @@ class SiftsSummaryProvider(object):
     def getIdentifiers(self, entryId, authAsymId, idType=None):
         aL = []
         try:
-            if idType in ["UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+            if idType in ["AL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
                 aL = self.__ssD[entryId][authAsymId][idType]
                 logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", entryId, authAsymId, idType, aL)
             else:
@@ -114,7 +114,7 @@ class SiftsSummaryProvider(object):
         """
         """
 
-        _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
+        uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
         logger.debug("uSeqD %d", len(uSeqD))
         #
@@ -339,7 +339,7 @@ class SiftsSummaryProvider(object):
         logger.info("Length of SIFTS UniProt summary file %s %d", csvFileName, len(rowDL))
         logger.debug("%r", list(rowDL[0].items()))
         uD = {}
-        uIdD = {}
+        # uIdD = {}
         for rowD in rowDL:
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
@@ -347,20 +347,19 @@ class SiftsSummaryProvider(object):
             #
             entitySeqBeg = int(rowD["RES_BEG"]) if rowD["RES_BEG"].isdigit() else None
             entitySeqEnd = int(rowD["RES_END"]) if rowD["RES_END"].isdigit() else None
-            authSeqBeg = int(rowD["PDB_BEG"]) if rowD["PDB_BEG"].isdigit() else None
-            authSeqEnd = int(rowD["PDB_END"]) if rowD["PDB_END"].isdigit() else None
+            entityLength = entitySeqEnd - entitySeqBeg + 1
+            # authSeqBeg = int(rowD["PDB_BEG"]) if rowD["PDB_BEG"].isdigit() else None
+            # authSeqEnd = int(rowD["PDB_END"]) if rowD["PDB_END"].isdigit() else None
             unpSeqBeg = int(rowD["SP_BEG"]) if rowD["SP_BEG"].isdigit() else None
-            unpSeqEnd = int(rowD["SP_END"]) if rowD["SP_END"].isdigit() else None
-            #
-            # data.setdefault("system", {})["name"] = platform.system()
-            #
-            dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
+            # unpSeqEnd = int(rowD["SP_END"]) if rowD["SP_END"].isdigit() else None
+            # dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
+            dD = {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
             uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("AL", []).append(dD)
-            uIdD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
+            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
             #
         logger.info("UniProt mapping for %d entries", len(uD))
         # -----
-        return uD, uIdD
+        return uD
 
     def __readSiftsSummaryFile(self, filePath):
         """ Read input SIFTS summary file and return a list of dictionaries.
