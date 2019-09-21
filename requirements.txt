@@ -1,1 +1,2 @@
 rcsb.utils.io >= 0.44
+backports.range; python_version < "3.0"

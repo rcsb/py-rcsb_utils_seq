@@ -54,7 +54,7 @@ class SiftsSummaryProvider(object):
     def getIdentifiers(self, entryId, authAsymId, idType=None):
         aL = []
         try:
-            if idType in ["AL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+            if idType in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
                 aL = self.__ssD[entryId][authAsymId][idType]
                 logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", entryId, authAsymId, idType, aL)
             else:
@@ -354,7 +354,7 @@ class SiftsSummaryProvider(object):
             # unpSeqEnd = int(rowD["SP_END"]) if rowD["SP_END"].isdigit() else None
             # dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
             dD = {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
-            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("AL", []).append(dD)
+            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPAL", []).append(dD)
             uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
             #
         logger.info("UniProt mapping for %d entries", len(uD))

@@ -8,3 +8,4 @@
   10-Sep-2019    V0.16 Convert case on PDB accession codes
   18-Sep-2019    V0.17 Add alignment details to the cache file
   18-Sep-2019    V0.18 Address Py27 dependency issue
+  19-Sep-2019    V0.19 Move SeqAlign() utility class to this module

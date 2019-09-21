@@ -55,7 +55,7 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         eCountR = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountR)
         self.assertEqual(eCountW, eCountR)
-        aL = su.getIdentifiers("102M", "A", "AL")
+        aL = su.getIdentifiers("102M", "A", "UNPAL")
         self.assertEqual(len(aL), 1)
         unpIdL = su.getIdentifiers("102M", "A", "UNPID")
         self.assertEqual(len(unpIdL), 1)
