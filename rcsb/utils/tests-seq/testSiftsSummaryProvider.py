@@ -50,6 +50,8 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         eCountW = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountW)
         self.assertGreaterEqual(eCountW, 140000)
+        aL = su.getIdentifiers("1CBS", "A", "UNPID")
+        self.assertEqual(len(aL), 1)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         su = SiftsSummaryProvider(cacheDirPath=self.__cacheDirPath, useCache=True)
         eCountR = su.getEntryCount()

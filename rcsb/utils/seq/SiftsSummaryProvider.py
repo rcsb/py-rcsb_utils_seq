@@ -117,12 +117,19 @@ class SiftsSummaryProvider(object):
         uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
         logger.debug("uSeqD %d", len(uSeqD))
+        for entryId, eD in uSeqD.items():
+            for chainId, _ in eD.items():
+                uSeqD[entryId][chainId]["UNPID"] = (
+                    sorted(set(uSeqD[entryId][chainId]["UNPID"])) if ((entryId in uSeqD) and (chainId in uSeqD[entryId]) and ("UNPID" in uSeqD[entryId][chainId])) else []
+                )
+
+        #
         #
         tD = self.__getPfamChainMapping(siftsSummaryDirPath, "pdb_chain_pfam.csv.gz")
         logger.info("SIFTS PFAM mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
-                uSeqD[entryId][chainId]["PFAMID"] = list(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
+                uSeqD[entryId][chainId]["PFAMID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
         #
         tD = self.__getInterProChainMapping(siftsSummaryDirPath, "pdb_chain_interpro.csv.gz")
@@ -130,7 +137,7 @@ class SiftsSummaryProvider(object):
         #
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
-                uSeqD[entryId][chainId]["IPROID"] = list(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
+                uSeqD[entryId][chainId]["IPROID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
         if abbreviated:
             return uSeqD
@@ -141,13 +148,13 @@ class SiftsSummaryProvider(object):
         #
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
-                uSeqD[entryId][chainId]["GOID"] = list(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
+                uSeqD[entryId][chainId]["GOID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
         tD = self.__getTaxonomnyChainMapping(siftsSummaryDirPath, "pdb_chain_taxonomy.csv.gz")
         logger.info("SIFTS Taxonomy mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
-                uSeqD[entryId][chainId]["TAXID"] = list(tD[entryId][chainId].keys()) if entryId in tD and chainId in tD[entryId] else []
+                uSeqD[entryId][chainId]["TAXID"] = sorted(list(tD[entryId][chainId].keys())) if entryId in tD and chainId in tD[entryId] else []
         #
         tD = self.__getCathChainMapping(siftsSummaryDirPath, "pdb_chain_cath_uniprot.csv.gz")
         logger.info("SIFTS CATH mappinglength %d", len(tD))
