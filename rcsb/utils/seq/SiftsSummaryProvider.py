@@ -85,7 +85,7 @@ class SiftsSummaryProvider(object):
         cacheKwargs = kwargs.get("cacheKwargs", {"fmt": "pickle"})
         useCache = kwargs.get("useCache", True)
         entrySaveLimit = kwargs.get("entrySaveLimit", None)
-        abbreviated = kwargs.get("abbreviated", False)
+        abbreviated = str(kwargs.get("abbreviated", "TEST")).upper()
         #
         cacheDirPath = kwargs.get("cacheDirPath", None)
         pyVersion = sys.version_info[0]
@@ -110,7 +110,7 @@ class SiftsSummaryProvider(object):
             logger.exception("Failing with %s", str(e))
         return ssD
 
-    def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated=True):
+    def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="TEST"):
         """
         """
 
@@ -131,6 +131,8 @@ class SiftsSummaryProvider(object):
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["PFAMID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
+        if abbreviated == "TEST":
+            return uSeqD
         #
         tD = self.__getInterProChainMapping(siftsSummaryDirPath, "pdb_chain_interpro.csv.gz")
         logger.info("SIFTS InterPro mapping length %d", len(tD))
@@ -147,7 +149,7 @@ class SiftsSummaryProvider(object):
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["GOID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
-        if abbreviated:
+        if abbreviated == "PROD":
             return uSeqD
         # --------------------
         tD = self.__getTaxonomnyChainMapping(siftsSummaryDirPath, "pdb_chain_taxonomy.csv.gz")

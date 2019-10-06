@@ -46,7 +46,8 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
     def testWriteReadSiftsSummaryCache(self):
-        su = SiftsSummaryProvider(srcDirPath=self.__srcDirPath, cacheDirPath=self.__cacheDirPath, useCache=False, abbreviated=True)
+        abbreviated = "TEST"
+        su = SiftsSummaryProvider(srcDirPath=self.__srcDirPath, cacheDirPath=self.__cacheDirPath, useCache=False, abbreviated=abbreviated)
         eCountW = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountW)
         self.assertGreaterEqual(eCountW, 140000)
@@ -63,12 +64,14 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         self.assertEqual(len(unpIdL), 1)
         pfamIdL = su.getIdentifiers("102M", "A", "PFAMID")
         self.assertEqual(len(pfamIdL), 1)
-        iproIdL = su.getIdentifiers("102M", "A", "IPROID")
-        self.assertEqual(len(iproIdL), 4)
-        goIdL = su.getIdentifiers("102M", "A", "GOID")
-        self.assertGreaterEqual(len(goIdL), 5)
-        logger.debug("GO IDS (%d) %r", len(goIdL), goIdL)
-        logger.debug("unpIdl %r pfamIdL %r iprodL %r", unpIdL, pfamIdL, iproIdL)
+        #
+        if abbreviated == "PROD":
+            iproIdL = su.getIdentifiers("102M", "A", "IPROID")
+            self.assertEqual(len(iproIdL), 4)
+            goIdL = su.getIdentifiers("102M", "A", "GOID")
+            self.assertGreaterEqual(len(goIdL), 5)
+            logger.debug("GO IDS (%d) %r", len(goIdL), goIdL)
+            logger.debug("unpIdl %r pfamIdL %r iprodL %r", unpIdL, pfamIdL, iproIdL)
 
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
 
