@@ -4,7 +4,7 @@
 # Date:    11-Dec-2018
 #
 # Updates:
-
+#  06-Oct-2019 jdw add GO as part of abbreviated mappings
 ##
 """
 Utilities to access SIFTS summary mapping data.
@@ -138,10 +138,7 @@ class SiftsSummaryProvider(object):
         for entryId, eD in uSeqD.items():
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["IPROID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
-        #
-        if abbreviated:
-            return uSeqD
-        # --------------------
+
         #
         tD = self.__getGoIdChainMapping(siftsSummaryDirPath, "pdb_chain_go.csv.gz")
         logger.info("SIFTS GO mapping length %d", len(tD))
@@ -150,6 +147,9 @@ class SiftsSummaryProvider(object):
             for chainId, _ in eD.items():
                 uSeqD[entryId][chainId]["GOID"] = sorted(set(tD[entryId][chainId])) if entryId in tD and chainId in tD[entryId] else []
         #
+        if abbreviated:
+            return uSeqD
+        # --------------------
         tD = self.__getTaxonomnyChainMapping(siftsSummaryDirPath, "pdb_chain_taxonomy.csv.gz")
         logger.info("SIFTS Taxonomy mapping length %d", len(tD))
         for entryId, eD in uSeqD.items():

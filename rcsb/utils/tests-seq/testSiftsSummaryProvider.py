@@ -65,6 +65,9 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         self.assertEqual(len(pfamIdL), 1)
         iproIdL = su.getIdentifiers("102M", "A", "IPROID")
         self.assertEqual(len(iproIdL), 4)
+        goIdL = su.getIdentifiers("102M", "A", "GOID")
+        self.assertGreaterEqual(len(goIdL), 5)
+        logger.debug("GO IDS (%d) %r", len(goIdL), goIdL)
         logger.debug("unpIdl %r pfamIdL %r iprodL %r", unpIdL, pfamIdL, iproIdL)
 
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
