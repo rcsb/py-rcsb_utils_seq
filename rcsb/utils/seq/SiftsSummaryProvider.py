@@ -110,7 +110,7 @@ class SiftsSummaryProvider(object):
             logger.exception("Failing with %s", str(e))
         return ssD
 
-    def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="TEST"):
+    def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="PROD"):
         """
         """
 
