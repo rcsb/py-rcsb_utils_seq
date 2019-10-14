@@ -79,6 +79,7 @@ class SeqAlign(object):
             self.__dbSeqIdEnd = kwargs.get("dbSeqIdEnd", None)
             self.__dbName = kwargs.get("dbName", None)
             self.__dbAccession = kwargs.get("dbAccession", None)
+            self.__dbIsoform = kwargs.get("dbIsoform", None)
         elif alignType == "SIFTS":
             # {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
             self.__entitySeqIdBeg = kwargs.get("BG", None)
@@ -88,6 +89,7 @@ class SeqAlign(object):
             self.__dbSeqIdEnd = None
             self.__dbName = "UNP"
             self.__dbAccession = kwargs.get("UP", None)
+            self.__dbIsoform = None
         #
 
     def getEntityRange(self):
@@ -139,8 +141,18 @@ class SeqAlign(object):
     def getDbAccession(self):
         return self.__dbAccession
 
+    def getDbIsoform(self):
+        return self.__dbIsoform
+
     def __str__(self):
-        return "DB: %r ACC: %r ENITY BEG: %r DB BEG: %r LEN: %r" % (self.__dbName, self.__dbAccession, self.__entitySeqIdBeg, self.__dbSeqIdBeg, self.__entityAlignLength)
+        return "DB: %r ACC: %r ISOFORM %r ENITY BEG: %r DB BEG: %r LEN: %r" % (
+            self.__dbName,
+            self.__dbAccession,
+            self.__dbIsoform,
+            self.__entitySeqIdBeg,
+            self.__dbSeqIdBeg,
+            self.__entityAlignLength,
+        )
 
     def __repr__(self):
         return self.__str__()

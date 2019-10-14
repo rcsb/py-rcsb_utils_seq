@@ -12,3 +12,4 @@
   23-Sep-2019    V0.20 Guarantee order and uniqueness from SiftsProvider.getIndentifiers()
    6-Oct-2019    V0.21 Include GO in the abbreviated set
    6-Oct-2019    V0.22 Make the content extracted subject to an API control to avoid Azure testing issues
+  12-Oct-2019    V0.23 Add method SiftsSummaryProvider.getLongestAlignments()

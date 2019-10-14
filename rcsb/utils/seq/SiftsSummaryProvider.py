@@ -7,7 +7,7 @@
 #  06-Oct-2019 jdw add GO as part of abbreviated mappings
 ##
 """
-Utilities to access SIFTS summary mapping data.
+Utilities to manage access to SIFTS summary mapping data.
 
 """
 __docformat__ = "restructuredtext en"
@@ -20,13 +20,13 @@ import os
 import sys
 
 from rcsb.utils.io.MarshalUtil import MarshalUtil
+from rcsb.utils.seq.SeqAlign import SeqAlign, splitSeqAlignObjList
 
 logger = logging.getLogger(__name__)
 
 
 class SiftsSummaryProvider(object):
-    """
-
+    """ Utilities to manage access to SIFTS summary mapping data.
     """
 
     def __init__(self, **kwargs):
@@ -38,7 +38,7 @@ class SiftsSummaryProvider(object):
     def getAlignmentCount(self, entryId, authAsymId):
         num = 0
         try:
-            num = len(self.__ssD[entryId][authAsymId]["AL"])
+            num = len(self.__ssD[entryId][authAsymId]["UNPAL"])
         except Exception:
             pass
         return num
@@ -46,10 +46,39 @@ class SiftsSummaryProvider(object):
     def getAlignments(self, entryId, authAsymId):
         aL = []
         try:
-            aL = self.__ssD[entryId][authAsymId]["AL"]
+            aL = self.__ssD[entryId][authAsymId]["UNPAL"]
         except Exception:
             pass
         return aL
+
+    def getLongestAlignments(self, entryId, authAsymIdL):
+        """ Return the longest unique SIFTS alignments for the input entity instances.
+
+        Args:
+            entryId (str): entry identifier
+            authAsymIdL (list): list of author entity instance (chain) identifiers
+
+        Returns:
+            (dict): {(dbName,dbAccession): [List of SeqAlign() objects with greatest coverage], }
+        """
+        retD = {}
+        seqAlignObjL = []
+        for authAsymId in authAsymIdL:
+            seqAlignObjL.extend([SeqAlign("SIFTS", **sa) for sa in self.getIdentifiers(entryId, authAsymId, idType="UNPAL")])
+        #
+        alRefD = {}
+        for seqAlignObj in seqAlignObjL:
+            alRefD.setdefault((seqAlignObj.getDbName(), seqAlignObj.getDbAccession()), []).append(seqAlignObj)
+        #
+        # Get the longest overlapping entity region of each ref alignment -
+        for (dbName, dbAcc), aL in alRefD.items():
+            alGrpD = splitSeqAlignObjList(aL)
+            logger.debug("SIFTS -> entryId %s dbName %r dbAcc %r alGrpD %r", entryId, dbName, dbAcc, alGrpD)
+            for _, grpAlignL in alGrpD.items():
+                lenL = [seqAlignObj.getEntityAlignLength() for seqAlignObj in grpAlignL]
+                idxMax = lenL.index(max(lenL))
+                retD.setdefault((dbName, dbAcc), []).append(grpAlignL[idxMax])
+        return retD
 
     def getIdentifiers(self, entryId, authAsymId, idType=None):
         aL = []

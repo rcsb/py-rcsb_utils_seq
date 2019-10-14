@@ -69,7 +69,7 @@ class SeqAlignTests(unittest.TestCase):
                 seqAlignObjL.append(SeqAlign("PDB", **alObj))
             grpD = splitSeqAlignObjList(seqAlignObjL)
             self.assertEqual(len(grpD), 3)
-            logger.info("grpD %r", grpD)
+            logger.debug("grpD %r", grpD)
             #
             seqAlignObj = self.__exdbL[0]
             sa = SeqAlign("PDB", **seqAlignObj)
