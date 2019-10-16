@@ -247,16 +247,26 @@ class SiftsSummaryProvider(object):
 
         """
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
-        rowDL = self.__readSiftsSummaryFile(fp)
-        logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
+        # read this in list format as the number fields per record is variable.
+        rowLL = self.__readSiftsSummaryFile(fp, rowFormat="list")
+        logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowLL))
         # logger.debug("CSV keys: %r", list(rowDL[0].items()))
         tD = {}
-        for rowD in rowDL:
-            entryId = rowD["PDB"]
-            chainId = rowD["CHAIN"]
-            goId = rowD["GO_ID"]
+        okCount = 0
+        errCount = 0
+        for rowL in rowLL:
+            entryId = rowL[0]
+            chainId = rowL[1]
+            goId = rowL[-1]
+            if not goId.startswith("GO:"):
+                logger.warning("Skipping bad GO record (%d) %s %s %r", len(rowL), entryId, chainId, goId)
+                errCount += 1
+                continue
             tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(goId)
+            okCount += 1
+
         logger.info("GO data for %d entries", len(tD))
+        logger.info("GO records %d format errors %d", okCount, errCount)
         return tD
 
     def __getInterProChainMapping(self, siftsSummaryDirPath, csvFileName):
@@ -272,6 +282,9 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             interProId = rowD["INTERPRO_ID"]
+            if not interProId.startswith("IPR"):
+                logger.warning("Skipping bad InterPro ID %s %s %r %r", entryId, chainId, interProId, rowD)
+                continue
             tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(interProId)
         logger.info("InterPro data for %d entries", len(tD))
         return tD
@@ -289,6 +302,9 @@ class SiftsSummaryProvider(object):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             pfamId = rowD["PFAM_ID"]
+            if not pfamId.startswith("PF"):
+                logger.warning("Skipping bad pfam ID %s %s %r %r", entryId, chainId, pfamId, rowD)
+                continue
             tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(pfamId)
         logger.info("PFAM data for %d entries", len(tD))
         return tD
@@ -399,12 +415,12 @@ class SiftsSummaryProvider(object):
         # -----
         return uD
 
-    def __readSiftsSummaryFile(self, filePath):
+    def __readSiftsSummaryFile(self, filePath, rowFormat="dict"):
         """ Read input SIFTS summary file and return a list of dictionaries.
         """
         try:
             mU = MarshalUtil()
-            cL = mU.doImport(filePath, fmt="csv")
+            cL = mU.doImport(filePath, fmt="csv", rowFormat=rowFormat)
             logger.debug("Container list %d", len(cL))
         except Exception as e:
             logger.exception("Failing with %s", str(e))
