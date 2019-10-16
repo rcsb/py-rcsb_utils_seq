@@ -14,3 +14,4 @@
    6-Oct-2019    V0.22 Make the content extracted subject to an API control to avoid Azure testing issues
   12-Oct-2019    V0.23 Add method SiftsSummaryProvider.getLongestAlignments()
   16-Oct-2019    V0.24 Address variable record length in reading SIFTS GO data.
+  16-Oct-2019    V0.25 Update handling of secondary reference assignment mapping

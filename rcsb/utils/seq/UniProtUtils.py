@@ -93,8 +93,9 @@ class UniProtUtils(object):
                 else:
                     for _, rD in resultD.items():
                         if sD["searchId"] in rD["accessions"]:
-                            sD.setdefault("matchedIds", []).append(sD["searchId"])
+                            sD.setdefault("matchedIds", []).append(rD["db_accession"])
                             sD["matched"] = "secondary"
+                    #
                     if "matched" not in sD:
                         sD["matched"] = "none"
 
