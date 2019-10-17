@@ -85,15 +85,19 @@ class UniProtUtils(object):
             # Create a match dictionary for the input id list -
             #
             for _, sD in matchD.items():
+                sId = sD["searchId"]
                 if "matched" in sD:
                     continue
-                if sD["searchId"] in resultD:
-                    sD.setdefault("matchedIds", []).append(sD["searchId"])
+                if sId in resultD:
+                    taxId = resultD[sId]["taxonomy_id"] if "taxonomy_id" in resultD[sId] else None
+                    sD.setdefault("matchedIds", {}).update({sId: {"taxId": taxId}})
                     sD["matched"] = "primary"
                 else:
                     for _, rD in resultD.items():
-                        if sD["searchId"] in rD["accessions"]:
-                            sD.setdefault("matchedIds", []).append(rD["db_accession"])
+                        if sId in rD["accessions"]:
+                            pId = rD["db_accession"]
+                            taxId = resultD[pId]["taxonomy_id"] if "taxonomy_id" in resultD[pId] else None
+                            sD.setdefault("matchedIds", {}).update({pId: {"taxId": taxId}})
                             sD["matched"] = "secondary"
                     #
                     if "matched" not in sD:
