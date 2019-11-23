@@ -16,3 +16,4 @@
   16-Oct-2019    V0.24 Address variable record length in reading SIFTS GO data.
   16-Oct-2019    V0.25 Update handling of secondary reference assignment mapping
   17-Oct-2019    V0.26 Include taxonomy with accession code mapping
+  23-Nov-2019    V0.27 Move pipeline to py38
