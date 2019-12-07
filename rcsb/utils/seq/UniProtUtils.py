@@ -4,6 +4,9 @@
 #
 # JDW - Adapted from SBKB sources and bits from RCSB codes -
 #
+# Updates:
+#
+#  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 ##
 
 import logging
@@ -46,7 +49,7 @@ class UniProtUtils(object):
         try:
             if self.__saveText:
                 self.__dataList = []
-            resultD = {}
+            referenceD = {}
             matchD = {}
             #
             searchIdList, variantD = self.__processIdList(idList)
@@ -56,9 +59,7 @@ class UniProtUtils(object):
             logger.debug("variants      %s", variantD.items())
 
             if searchIdList is None or not searchIdList:
-                return resultD, matchD
-            #
-            matchD = {inpId: {"searchId": searchIdList[ii]} for ii, inpId in enumerate(idList)}
+                return referenceD, matchD
             #
             searchIdList = list(set(searchIdList))
             subLists = self.__makeSubLists(maxChunkSize, searchIdList)
@@ -75,12 +76,43 @@ class UniProtUtils(object):
                 #
                 if (xmlText is not None) and not xmlText.startswith("ERROR"):
                     tD = self.__parseText(xmlText, variantD)
-                    resultD.update(tD)
+                    referenceD.update(tD)
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
                     logger.info("Fetch %r status %r text %r", subList, ok, xmlText)
 
+            matchD = self.rebuildMatchResultIndex(idList, referenceD)
+
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+
+        return referenceD, matchD
+
+    def rebuildMatchResultIndex(self, idList, referenceD):
+        """     Rebuild the search result index for the input id list.
+                The input list is filtered for variants (e.g. ids with appended '-#').
+
+                Divide the input list into manageable chunks, fetch each chunk,
+                and concatenate the result.
+
+                Return dict: dictionary index of search match results
+
+        """
+        try:
+            matchD = {}
+            #
+            searchIdList, variantD = self.__processIdList(idList)
+
+            logger.debug("input id list %s", idList)
+            logger.debug("search   list %s", searchIdList)
+            logger.debug("variants      %s", variantD.items())
+
+            if searchIdList is None or not searchIdList:
+                return matchD
+            #
+            matchD = {inpId: {"searchId": searchIdList[ii]} for ii, inpId in enumerate(idList)}
+            searchIdList = list(set(searchIdList))
             #
             # Create a match dictionary for the input id list -
             #
@@ -88,15 +120,15 @@ class UniProtUtils(object):
                 sId = sD["searchId"]
                 if "matched" in sD:
                     continue
-                if sId in resultD:
-                    taxId = resultD[sId]["taxonomy_id"] if "taxonomy_id" in resultD[sId] else None
+                if sId in referenceD:
+                    taxId = referenceD[sId]["taxonomy_id"] if "taxonomy_id" in referenceD[sId] else None
                     sD.setdefault("matchedIds", {}).update({sId: {"taxId": taxId}})
                     sD["matched"] = "primary"
                 else:
-                    for _, rD in resultD.items():
+                    for _, rD in referenceD.items():
                         if sId in rD["accessions"]:
                             pId = rD["db_accession"]
-                            taxId = resultD[pId]["taxonomy_id"] if "taxonomy_id" in resultD[pId] else None
+                            taxId = referenceD[pId]["taxonomy_id"] if "taxonomy_id" in referenceD[pId] else None
                             sD.setdefault("matchedIds", {}).update({pId: {"taxId": taxId}})
                             sD["matched"] = "secondary"
                     #
@@ -106,7 +138,7 @@ class UniProtUtils(object):
         except Exception as e:
             logger.exception("Failing with %s", str(e))
 
-        return resultD, matchD
+        return matchD
 
     def writeUnpXml(self, filePath):
         with open(filePath, "w") as ofh:

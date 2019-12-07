@@ -29,7 +29,7 @@ logger = logging.getLogger()
 
 class UniProtUtilsTests(unittest.TestCase):
     def setUp(self):
-        self.__export = False
+        self.__export = True
         self.__mU = MarshalUtil()
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
         #
@@ -121,6 +121,9 @@ class UniProtUtilsTests(unittest.TestCase):
                 retD, matchD = fobj.fetchList(idList)
                 numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
                 logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
+                #
+                rematchD = fobj.rebuildMatchResultIndex(idList, retD)
+                self.assertDictEqual(matchD, rematchD)
                 #
                 self.assertGreaterEqual(len(retD), len(idList))
                 if retD and self.__export:
