@@ -18,3 +18,4 @@
   17-Oct-2019    V0.26 Include taxonomy with accession code mapping
   23-Nov-2019    V0.27 Move pipeline to py38
    6-Dec-2019    V0.28 Add rebuildMatchResultIndex() to refresh the match index.
+   9s-Dec-2019   V0.29 Add reformat method to support ExDB schema spec.

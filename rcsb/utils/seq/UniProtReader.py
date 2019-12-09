@@ -4,6 +4,7 @@
 #          JDW - Adapted from earlier SBKB code -
 ##
 
+
 import copy
 import logging
 import string
@@ -171,9 +172,18 @@ class UniProtReader(object):
                 elif node.tagName == "keyword":
                     # Get keyword from <keyword id="KW-0181">Complete proteome</keyword>
                     #    and concatenate them using comma separator
-                    tDict.setdefault("keywords", []).append(node.firstChild.data)
+                    # node.attributes["id"].value
+                    # tDict.setdefault("keywords", []).append(node.firstChild.data)
+                    tDict.setdefault("keywords", []).append({"id": node.attributes["id"].value, "keyword": node.firstChild.data})
                 elif node.tagName == "comment":
                     self.__getComments(node, tDict)
+                elif node.tagName == "evidence":
+                    tType = node.attributes["type"].value if "type" in node.attributes else None
+                    evKey = node.attributes["key"].value if "key" in node.attributes else None
+                    if evKey and tType:
+                        tDict.setdefault("evidence", {}).setdefault(evKey, tType)
+                elif node.tagName == "feature":
+                    self.__getFeature(node, tDict)
 
             #
             # This is an improbable situation of entry lacking an accession code.
@@ -205,6 +215,95 @@ class UniProtReader(object):
             entryDict[tDict["db_accession"]] = tDict
 
         return entryDict
+
+    def __getFeature(self, node, tDict):
+        """[summary]
+
+
+            Examples -
+                    <feature type="sequence conflict" description="In Ref. 2; AAA37242." ref="2" evidence="5">
+                        <original>I</original>
+                        <variation>M</variation>
+                        <location>
+                            <position position="106"/>
+                        </location>
+                    </feature>
+                    <feature type="sequence conflict" description="In Ref. 2; AAA40578/AAA37242." ref="2" evidence="5">
+                        <original>A</original>
+                        <variation>T</variation>
+                        <location>
+                    </feature>
+                    <feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
+                    <location>
+                        <position position="103"/>
+                    </location>
+                    <feature type="disulfide bond" evidence="3 4">
+                    <location>
+                        <begin position="167"/>
+                        <end position="253"/>
+                    </location>
+                    <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
+                        <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
+                        <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
+                        <location>
+                            <begin position="455"/>
+                            <end position="518"/>
+                        </location>
+                    </feature>
+                    <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
+                        <location>
+                            <begin position="519"/>
+                            <end position="549"/>
+                        </location>
+                    </feature>
+
+
+        """
+        tD = {}
+        fType = node.attributes["type"].value
+        tD["type"] = fType
+        fId = node.attributes["id"].value if "id" in node.attributes else None
+        if fId:
+            tD["feature_id"] = fId
+        fRef = node.attributes["ref"].value if "ref" in node.attributes else None
+        if fRef:
+            tD["reference"] = fRef
+        fDescribe = node.attributes["description"].value if "description" in node.attributes else None
+        if fDescribe:
+            tD["description"] = fDescribe
+        fEv = node.attributes["evidence"].value if "evidence" in node.attributes else None
+        if fEv:
+            tD["evidence"] = fEv
+
+        position = begin = end = variation = original = None
+        for node1 in node.childNodes:
+            if node1.nodeType != node1.ELEMENT_NODE:
+                continue
+            if node1.tagName == "variation":
+                variation = node1.firstChild.data.replace("\n", "")
+            elif node1.tagName == "original":
+                original = node1.firstChild.data.replace("\n", "")
+            elif node1.tagName == "location":
+                for node2 in node1.childNodes:
+                    if node2.nodeType != node2.ELEMENT_NODE:
+                        continue
+                    if node2.tagName == "position":
+                        position = node2.attributes["position"].value
+                    elif node2.tagName == "begin":
+                        begin = node2.attributes["position"].value
+                    elif node2.tagName == "end":
+                        end = node2.attributes["position"].value
+
+        if position:
+            tD["position"] = position
+        elif begin and end:
+            tD["begin"] = begin
+            tD["end"] = end
+        if variation:
+            tD["variation"] = variation
+        if original:
+            tD["original"] = original
+        tDict.setdefault("features", []).append(tD)
 
     def __getDbReference(self, node, tDict):
         """
@@ -244,7 +343,7 @@ class UniProtReader(object):
         #
         if dbType in ["EC", "PIR"]:
             tDict.setdefault("dbReferences", []).append(tD)
-        elif dbType in ["EMBL", "GO", "RefSeq", "Pfam", "InterPro"]:
+        elif dbType in ["EMBL", "GO", "RefSeq", "Pfam", "InterPro"] or dbType.upper().startswith("ENSEMBL"):
             pD = self.__getProperties(node.childNodes)
             tD.update(pD)
             tDict.setdefault("dbReferences", []).append(tD)
@@ -342,8 +441,10 @@ class UniProtReader(object):
 
             elif node.tagName == "dbReference":
                 tType = node.attributes["type"]
+
                 if tType and tType.value == "NCBI Taxonomy":
                     tDict["taxonomy_id"] = int(node.attributes["id"].value)
+                    tDict["taxonomy_evc"] = node.attributes["key"].value if "key" in node.attributes else None
 
     def __getComments(self, node, tDict):
         """From
@@ -370,9 +471,9 @@ class UniProtReader(object):
 
         tType = node.attributes["type"]
         if tType and tType.value != "online information":
-            text = self.__getText(node.childNodes)
+            text, ev = self.__getText(node.childNodes)
             if text is not None:
-                tDict.setdefault("comments", []).append({"type": tType.value, "text": text})
+                tDict.setdefault("comments", []).append({"type": tType.value, "text": text, "evidence": ev})
 
     def __getText(self, nodeList):
         """Get text value from
@@ -382,8 +483,10 @@ class UniProtReader(object):
             if node.nodeType != node.ELEMENT_NODE:
                 continue
             if node.tagName == "text":
-                return node.firstChild.data
-        return None
+                ev = node.attributes["evidence"].value if "evidence" in node.attributes else None
+                return node.firstChild.data, ev
+
+        return None, None
 
     def __getIsoFormSeq(self, doc, vId, tDict):
         """Get isoform sequence for vId if it exists  -

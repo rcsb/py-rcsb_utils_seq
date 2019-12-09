@@ -9,6 +9,7 @@
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 ##
 
+import collections
 import logging
 
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
@@ -22,6 +23,8 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+FeatureLabel = collections.namedtuple("FeatureLabel", "type description id evidence reference original variation")
+
 
 class UniProtUtils(object):
     """
@@ -34,6 +37,50 @@ class UniProtUtils(object):
     def __init__(self, **kwargs):
         self.__saveText = kwargs.get("saveText", False)
         self.__dataList = []
+        self.__unpFeatureD = {
+            kk: kk
+            for kk in [
+                "ACTIVE_SITE",
+                "BINDING_SITE",
+                "CALCIUM_BINDING_REGION",
+                "CHAIN",
+                "COILED_COIL_REGION",
+                "COMPOSITIONALLY_BIASED_REGION",
+                "CROSS_LINK",
+                "DISULFIDE_BOND",
+                "DNA_BINDING_REGION",
+                "DOMAIN",
+                "GLYCOSYLATION_SITE",
+                "HELIX",
+                "INITIATOR_METHIONINE",
+                "LIPID_MOIETY_BINDING_REGION",
+                "METAL_ION_BINDING_SITE",
+                "MODIFIED_RESIDUE",
+                "MUTAGENESIS_SITE",
+                "NON_CONSECUTIVE_RESIDUES",
+                "NON_TERMINAL_RESIDUE",
+                "NUCLEOTIDE_PHOSPHATE_BINDING_REGION",
+                "PEPTIDE",
+                "PROPEPTIDE",
+                "REGION_OF_INTEREST",
+                "REPEAT",
+                "NON_STANDARD_AMINO_ACID",
+                "SEQUENCE_CONFLICT",
+                "SEQUENCE_VARIANT",
+                "SHORT_SEQUENCE_MOTIF",
+                "SIGNAL_PEPTIDE",
+                "SITE",
+                "SPLICE_VARIANT",
+                "STRAND",
+                "TOPOLOGICAL_DOMAIN",
+                "TRANSIT_PEPTIDE",
+                "TRANSMEMBRANE_REGION",
+                "TURN",
+                "UNSURE_RESIDUE",
+                "ZINC_FINGER_REGION",
+                "INTRAMEMBRANE_REGION",
+            ]
+        }
         #
 
     def fetchList(self, idList, maxChunkSize=200):
@@ -140,6 +187,137 @@ class UniProtUtils(object):
 
         return matchD
 
+    def reformat(self, refD, formatType="exchange"):
+        defAssertion = "ECO:0000323"
+        rObj = {}
+        if formatType != "exchange":
+            return rObj
+        #
+        for uId, uD in refD.items():
+            evD = uD["evidence"] if "evidence" in uD else {}
+            rD = {}
+            dbName = uD["db_name"]
+            dbVersion = uD["version"]
+            rD["rcsb_id"] = uId
+            rD["rcsb_uniprot_container_identifiers"] = {"uniprot_id": uId}
+            if "accessions" in uD:
+                rD["rcsb_uniprot_accession"] = uD["accessions"]
+            if "db_code" in uD:
+                rD.setdefault("rcsb_uniprot_entry_name", []).append(uD["db_code"])
+            if "keywords" in uD:
+                rD["rcsb_uniprot_keyword"] = [{"id": tD["id"], "value": tD["keyword"]} for tD in uD["keywords"]]
+            #
+            if "sequence" in uD:
+                rD["rcsb_uniprot_protein"] = {"sequence": uD["sequence"]}
+            if "names" in uD:
+                for nD in uD["names"]:
+                    if "nameType" in nD and nD["nameType"] in ["recommendedName"]:
+                        rD["rcsb_uniprot_protein"]["name"] = {"value": nD["name"], "provenance_code": defAssertion}
+            #
+            if "gene" in uD:
+                tL = []
+                for nD in uD["gene"]:
+                    # 	"enum" : [  "PRIMARY", "SYNONYM",  "ORDERED_LOCUS", "ORF"]
+                    tt = nD["type"].upper().replace(" ", "_")
+                    tL.append({"type": tt, "value": nD["name"]})
+                rD["rcsb_uniprot_protein"].setdefault("gene", []).append({"name": tL})
+            #
+            if "comments" in uD:
+                for cD in uD["comments"]:
+                    if "type" in cD and cD["type"] == "function" and "text" in cD:
+                        evKy = cD["evidence"] if "evidence" in cD and cD["evidence"] else None
+                        evC = evD[evKy] if evKy in evD else defAssertion
+                        txt = cD["text"]
+                        rD["rcsb_uniprot_protein"]["function"] = {"details": txt, "provenance_code": evC}
+            if "source_scientific" in uD and "taxonomy_id" in uD:
+                evKy = uD["taxonomy_evc"] if "taxonomy_evc" in uD and uD["taxonomy_evc"] else None
+                evC = evD[evKy] if evKy in evD else defAssertion
+                rD["rcsb_uniprot_protein"]["source_organism"] = {"scientific_name": uD["source_scientific"], "taxonomy_id": uD["taxonomy_id"], "provenance_code": evC}
+            #
+            pfamL = set()
+            ensL = set()
+            goL = set()
+            ecD = {}
+            if "dbReferences" in uD:
+                for tD in uD["dbReferences"]:
+                    evKy = tD["evidence"] if "evidence" in tD and tD["evidence"] else None
+                    evCode = evD[evKy] if evKy in evD else defAssertion
+                    rsName = tD["resource"] if "resource" in tD and tD["resource"] else None
+                    idCode = tD["id_code"] if "id_code" in tD and tD["id_code"] else None
+                    if rsName == "EC":
+                        ecD[idCode] = evCode
+                    elif rsName == "Pfam":
+                        pfamL.add(idCode)
+                    elif rsName == "GO":
+                        goL.add(idCode)
+                    elif rsName.upper().startswith("ENSEMB"):
+                        ensL.add(idCode)
+            if pfamL:
+                rD["rcsb_uniprot_container_identifiers"]["pfam_ids"] = sorted(pfamL)
+            if goL:
+                rD["rcsb_uniprot_container_identifiers"]["go_ids"] = sorted(goL)
+            if ensL:
+                rD["rcsb_uniprot_container_identifiers"]["ensembl_ids"] = sorted(ensL)
+            if ecD:
+                rD["rcsb_uniprot_protein"]["ec"] = [{"number": ecId, "provenance_code": pC} for ecId, pC in ecD.items()]
+            # -------
+            # create index of features =
+            # FeatureLabel = collections.namedtuple("FeatureLabel", "type description id evidence reference orginal variation")
+            #
+
+            if "features" in uD:
+                fIndxD = {}
+                for fD in uD["features"]:
+                    fType = fD["type"].upper().replace(" ", "_")
+                    fDes = fD["description"] if "description" in fD else None
+                    fId = fD["feature_id"] if "feature_id" in fD else None
+                    fRef = fD["reference"] if "reference" in fD else None
+                    fEv = fD["evidence"] if "evidence" in fD else None
+                    fOrg = fD["original"] if "original" in fD else None
+                    fVar = fD["variation"] if "variation" in fD else None
+                    fLabel = FeatureLabel(fType, fDes, fId, fEv, fRef, fOrg, fVar)
+                    fIndxD.setdefault(fLabel, []).append(fD)
+                #
+                for fIdx, fDL in fIndxD.items():
+                    if fIdx.type not in self.__unpFeatureD:
+                        continue
+                    tD = {}
+                    tD["type"] = fIdx.type
+                    tD["assignment_version"] = dbName + "_" + dbVersion
+                    if fIdx.id:
+                        tD["feature_id"] = fIdx.id
+                    if fIdx.evidence:
+                        try:
+                            evL = [evD[t] for t in fIdx.evidence.split()]
+                            tD["provenance_code"] = ",".join(evL)
+                        except Exception as e:
+                            logger.exception("Failing with %s", str(e))
+                    #
+                    tD["reference_scheme"] = "UniProt"
+                    dS = ""
+                    if fIdx.description:
+                        dS = fIdx.description
+                    if fIdx.original and fIdx.variation:
+                        dS += " (" + fIdx.original + " -> " + fIdx.variation + ")"
+                    if dS:
+                        tD["description"] = dS
+                    #
+                    for fD in fDL:
+                        if "begin" in fD and "end" in fD:
+                            tD.setdefault("feature_ranges", []).append({"beg_seq_id": int(fD["begin"]), "end_seq_id": int(fD["end"])})
+                        elif "position" in fD:
+                            if fIdx.original:
+                                tD.setdefault("feature_positions", []).append({"comp_id": fIdx.original, "seq_id": int(fD["position"])})
+                            else:
+                                tD.setdefault("feature_positions", []).append({"seq_id": int(fD["position"])})
+                    #
+                    rD.setdefault("rcsb_uniprot_feature", []).append(tD)
+            #
+            rObj[uId] = rD
+        #
+        return rObj
+
+    #
     def writeUnpXml(self, filePath):
         with open(filePath, "w") as ofh:
             for data in self.__dataList:

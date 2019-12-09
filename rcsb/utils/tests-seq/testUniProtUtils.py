@@ -11,11 +11,17 @@ Test cases for individual and batch fetch of UniProt sequence entries.
 
     @unittest.skipIf(condition, reason)
     @unittest.skipUnless(condition, reason)
+
+    Collaboritive Resarch (CIBR) Proposal by the wwPDB to develop new FACT data services to deliver extreme FAIR data products
+            for next generation structural biology to diverse audience of research users
 """
 
 import logging
 import os
 import unittest
+
+from jsonschema import Draft4Validator
+from jsonschema import FormatChecker
 
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.UniProtUtils import UniProtUtils
@@ -110,6 +116,61 @@ class UniProtUtilsTests(unittest.TestCase):
         ]
         # self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3", "P29994-1", "P29994-2", "P29994-3", "P29994-4", "P29994-5", "P29994-6", "P29994-7"]
         self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3"]
+        self.__jsonSchemaPath = os.path.join(HERE, "test-data", "json-schema-core_uniprot.json")
+
+    def testExchangeObject(self):
+        """ Test fetch exchange objects
+        """
+        try:
+            #
+            fobj = UniProtUtils(saveText=False)
+            idList = self.__unpIdList1
+            retD, _ = fobj.fetchList(idList)
+            exObjD = fobj.reformat(retD, formatType="exchange")
+            if exObjD and self.__export:
+                for rId in exObjD:
+                    self.__mU.doExport(os.path.join(self.__workPath, rId + "-exchange.json"), exObjD[rId], fmt="json", indent=3)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
+
+    def testValidateExchangeObject(self):
+        """ Test fetch exchange objects
+        """
+        try:
+            #
+            sD = self.__mU.doImport(self.__jsonSchemaPath, "json")
+            #
+            fobj = UniProtUtils(saveText=False)
+            idList = self.__unpIdList1
+            retD, _ = fobj.fetchList(idList)
+            exObjD = fobj.reformat(retD, formatType="exchange")
+            if exObjD and self.__export:
+                for rId in exObjD:
+                    self.__mU.doExport(os.path.join(self.__workPath, rId + "-exchange.json"), exObjD[rId], fmt="json", indent=3)
+            #
+            Draft4Validator.check_schema(sD)
+            #
+            valInfo = Draft4Validator(sD, format_checker=FormatChecker())
+            eCount = 0
+            for rId, dD in exObjD.items():
+                logger.debug("Uid %s", rId)
+                try:
+                    cCount = 0
+                    for error in sorted(valInfo.iter_errors(dD), key=str):
+                        logger.info("%s path %s error: %s", rId, error.path, error.message)
+                        logger.debug(">>> failing object is %r", dD)
+                        eCount += 1
+                        cCount += 1
+                    #
+                    logger.debug("%s errors count %d", rId, cCount)
+                except Exception as e:
+                    logger.exception("Validator fails  %s", str(e))
+            #
+            logger.debug("Total errors count %d", eCount)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
 
     def testFetchIds(self):
         """ Test individual entry fetch
@@ -191,7 +252,7 @@ class UniProtUtilsTests(unittest.TestCase):
             self.assertGreaterEqual(len(retD), len(self.__unpIdListV))
             if retD and self.__export:
                 fobj.writeUnpXml(os.path.join(self.__workPath, "variant-batch-fetch.xml"))
-                self.__dumpEntries(retD)
+                # self.__dumpEntries(retD)
         except Exception as e:
             logger.exception("Failing with %s", str(e))
             self.fail()
