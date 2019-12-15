@@ -28,7 +28,7 @@ class UniProtReader(object):
            dict['sequence']          - sequence
            dict['keywords']           - keywords
            dict['names']              - protein names
-           dict['gene']               - gene namesd
+           dict['gene']               - gene names
            dict['source_scientific'] - source scientific name
            dict['source_common']     - source common name
            dict['taxonomy_id']       - source taxonomy ID

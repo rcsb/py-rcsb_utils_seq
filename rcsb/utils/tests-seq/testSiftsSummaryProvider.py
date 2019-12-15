@@ -65,8 +65,11 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         pfamIdL = su.getIdentifiers("102M", "A", "PFAMID")
         self.assertEqual(len(pfamIdL), 1)
         #
-        uniqueUniprotL = su.getUniqueIdentifiers(idType="UNPID")
-        logger.info("Unique UniProt identifiers %d", len(uniqueUniprotL))
+        uniqueUniprotAL = su.getUniqueIdentifiers(idType="UNPID")
+        logger.info("Unique UniProt identifiers %d", len(uniqueUniprotAL))
+        #
+        uniqueUniprotBL = su.getEntryUniqueIdentifiers(su.getEntries(), idType="UNPID")
+        self.assertEqual(len(uniqueUniprotAL), len(uniqueUniprotBL))
         #
         if abbreviated == "PROD":
             iproIdL = su.getIdentifiers("102M", "A", "IPROID")

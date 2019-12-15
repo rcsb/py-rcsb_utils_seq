@@ -35,6 +35,9 @@ class SiftsSummaryProvider(object):
     def getEntryCount(self):
         return len(self.__ssD)
 
+    def getEntries(self):
+        return sorted(self.__ssD.keys())
+
     def getUniqueIdentifiers(self, idType="UNPID"):
         uL = []
         if idType not in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
@@ -44,6 +47,22 @@ class SiftsSummaryProvider(object):
                 for _, iD in aD.items():
                     if idType in iD:
                         uL.extend(iD[idType])
+            return sorted(set(uL))
+        except Exception:
+            pass
+        return uL
+
+    def getEntryUniqueIdentifiers(self, entryIdList, idType="UNPID"):
+        uL = []
+        if idType not in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+            return uL
+        try:
+            for entryId in entryIdList:
+                if entryId in self.__ssD:
+                    aD = self.__ssD[entryId]
+                    for _, iD in aD.items():
+                        if idType in iD:
+                            uL.extend(iD[idType])
             return sorted(set(uL))
         except Exception:
             pass
