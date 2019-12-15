@@ -35,6 +35,20 @@ class SiftsSummaryProvider(object):
     def getEntryCount(self):
         return len(self.__ssD)
 
+    def getUniqueIdentifiers(self, idType="UNPID"):
+        uL = []
+        if idType not in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+            return uL
+        try:
+            for _, aD in self.__ssD.items():
+                for _, iD in aD.items():
+                    if idType in iD:
+                        uL.extend(iD[idType])
+            return sorted(set(uL))
+        except Exception:
+            pass
+        return uL
+
     def getAlignmentCount(self, entryId, authAsymId):
         num = 0
         try:
