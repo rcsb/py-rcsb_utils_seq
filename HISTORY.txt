@@ -21,3 +21,4 @@
    9-Dec-2019    V0.29 Add reformat method to support ExDB schema spec.
   14-Dec-2019    V0.30 Add method to provide unique UniProt accessions.
   15-Dec-2019    V0.31 Add method to provide unique UniProt accessions for an entry subset
+  16-Dec-2019    V0.32 Correction in parser for feature sequence positions
