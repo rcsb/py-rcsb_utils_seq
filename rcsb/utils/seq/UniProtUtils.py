@@ -123,7 +123,10 @@ class UniProtUtils(object):
                 #
                 if (xmlText is not None) and not xmlText.startswith("ERROR"):
                     tD = self.__parseText(xmlText, variantD)
-                    referenceD.update(tD)
+                    if tD:
+                        referenceD.update(tD)
+                    else:
+                        logger.error("Status %r Bad xml text %r", ok, xmlText[:50])
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
@@ -332,16 +335,16 @@ class UniProtUtils(object):
         contains keys corresponding to the original input id list.
 
         """
-        retD = {}
         ur = UniProtReader()
         try:
             logger.debug("variantD %r", variantD)
             for vId, aId in variantD.items():
                 ur.addVariant(aId, vId)
             retD = ur.readString(xmlText)
+            return retD
         except Exception as e:
             logger.exception("Failing with %s", str(e))
-        return retD
+        return {}
 
     def __doRequest(self, idList, retryAltApi=True):
         ret, retCode = self.__doRequestPrimary(idList)
