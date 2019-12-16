@@ -289,10 +289,10 @@ class UniProtReader(object):
                         continue
                     if node2.tagName == "position":
                         position = node2.attributes["position"].value
-                    elif node2.tagName == "begin":
-                        begin = node2.attributes["begin"].value
-                    elif node2.tagName == "end":
-                        end = node2.attributes["end"].value
+                    elif node2.tagName == "begin" and "position" in node2.attributes:
+                        begin = node2.attributes["position"].value
+                    elif node2.tagName == "end" and "position" in node2.attributes:
+                        end = node2.attributes["position"].value
 
         if position:
             tD["position"] = position
