@@ -95,7 +95,7 @@ class UniProtReader(object):
             eDict = self.__parse(doc)
             logger.debug("eDict keys %r", list(eDict.keys()))
         except Exception as e:
-            logger.exception("Failing with %s", str(e))
+            logger.error("Failing with %s", str(e))
 
         return eDict
 
