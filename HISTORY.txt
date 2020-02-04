@@ -24,3 +24,4 @@
   16-Dec-2019    V0.32 Correction in parser for feature sequence positions
   16-Dec-2019    V0.33 Improved error handling for failed fetches.
   16-Dec-2019    V0.34 Suppress tracebacks for some connection issues.
+   3-Feb-2020    V0.35 Update dependencies
