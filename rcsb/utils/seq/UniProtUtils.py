@@ -348,9 +348,11 @@ class UniProtUtils(object):
 
     def __doRequest(self, idList, retryAltApi=True):
         ret, retCode = self.__doRequestPrimary(idList)
+        ok = retCode in [200] and ret and len(ret) > 0
         if retryAltApi and retCode not in [200]:
             ret, retCode = self.__doRequestSecondary(idList)
-        ok = retCode in [200]
+        ok = retCode in [200] and ret and len(ret) > 0
+        # ok = retCode in [200]
         #
         return ok, ret
 
