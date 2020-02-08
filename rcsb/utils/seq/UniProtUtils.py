@@ -36,6 +36,8 @@ class UniProtUtils(object):
 
     def __init__(self, **kwargs):
         self.__saveText = kwargs.get("saveText", False)
+        self.__urlPrimary = kwargs.get("urlPrimary", "https://www.uniprot.org")
+        self.__urlSecondary = kwargs.get("urlSecondary", "https://www.ebi.ac.uk")
         self.__dataList = []
         self.__unpFeatureD = {
             kk: kk
@@ -83,15 +85,21 @@ class UniProtUtils(object):
         }
         #
 
-    def fetchList(self, idList, maxChunkSize=200):
-        """     Execute a fetch query for the input id list.
-                The input list is filtered for variants (e.g. ids with appended '-#').
+    def fetchList(self, idList, maxChunkSize=100, usePrimary=True, retryAltApi=True):
+        """Execute a fetch query for the input id list. The input list is filtered
+           for sequence variants (e.g. ids with appended '-#').
 
-                Divide the input list into manageable chunks, fetch each chunk,
-                and concatenate the result.
+           The input list is divided into manageable chunks, each chunk is fetched,
+           and result concatenated.
 
-                Return dict: dictionary of parsed UniProt features
+        Args:
+            idList (list): List of UniProt identifiers
+            maxChunkSize (int, optional): id chunk size. Defaults to 100.
+            usePrimary (bool, optional): Use the primary UniProt webservice. Defaults to True.
 
+        Returns:
+            dict: {unpId: {'key':val, ... }} dictionary of UniProt reference data
+            dict: {unpId: {match details}, ...} } dictionary of match details
         """
         try:
             if self.__saveText:
@@ -116,7 +124,7 @@ class UniProtUtils(object):
                 logger.debug("Fetching subList %r", subList)
                 logger.info("Starting fetching for sublist %d/%d", ii + 1, numLists)
                 #
-                ok, xmlText = self.__doRequest(subList)
+                ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
                 logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
@@ -346,20 +354,23 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return {}
 
-    def __doRequest(self, idList, retryAltApi=True):
-        ret, retCode = self.__doRequestPrimary(idList)
-        ok = retCode in [200] and ret and len(ret) > 0
-        if retryAltApi and retCode not in [200]:
+    def __doRequest(self, idList, retryAltApi=True, usePrimary=True):
+        ok = False
+        if usePrimary:
+            ret, retCode = self.__doRequestPrimary(idList)
+            ok = retCode in [200] and ret and len(ret) > 0
+        #
+        if retryAltApi and not ok:
+            logger.info("Using secondary service site")
             ret, retCode = self.__doRequestSecondary(idList)
-        ok = retCode in [200] and ret and len(ret) > 0
-        # ok = retCode in [200]
+            ok = retCode in [200] and ret and len(ret) > 0
         #
         return ok, ret
 
     def __doRequestPrimary(self, idList):
         """
         """
-        baseUrl = "http://www.uniprot.org"
+        baseUrl = self.__urlPrimary
         endPoint = "uploadlists"
         hL = [("Accept", "application/xml")]
         pD = {"from": "ACC+ID", "to": "ACC", "format": "xml", "query": " ".join(idList)}
@@ -367,7 +378,7 @@ class UniProtUtils(object):
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
 
     def __doRequestSecondary(self, idList):
-        baseUrl = "https://www.ebi.ac.uk"
+        baseUrl = self.__urlSecondary
         endPoint = "proteins/api/proteins"
         #
         hL = [("Accept", "application/xml")]

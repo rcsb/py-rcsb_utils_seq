@@ -116,6 +116,30 @@ class UniProtUtilsTests(unittest.TestCase):
         ]
         # self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3", "P29994-1", "P29994-2", "P29994-3", "P29994-4", "P29994-5", "P29994-6", "P29994-7"]
         self.__unpIdListV = ["P42284-1", "P42284-2", "P42284-3"]
+        rawS = """O00422 P00221 Q10423 Q01663 J9VQ51 Q8U004 A0A0H2ZZ96 Q9X1M7 P83876 Q9NPH0 Q74085 Q61466 F1RU54 C7LV29 Q8IHT9 B8XA40 O70439 K0BUH0
+                  P23726 Q12748 Q56254 A0A0J9X1Y2 F1LW30 P14625 Q8WV99 Q7YXL2 Q9X250 O07177 P10775 Q38AR9 P48556 A0A0F7RI76 P08107 G9I930 P62399
+                  P27254 A8JEA1 E3TFZ1 P13491 P0C249 Q94G94 P78371 Q966D4 Q9KTB7 A0A1L7NZN4 A1SBA1 O15031 G0S0N0 P72223 Q9UUB1 A5U127
+                    A0A029IJY9 Q8ZA87 Q93UV0 P20711 A0QWT2 P21453 C5HMM2 Q96DI7 O60760 Q9VVX0 Q7CJ22 Q9REC4 O13516 F2REK9 P0A707 P96724
+                    Q8GME2 B3F2X3 A3DK57 O29370 O60494 Q65ZI1 P03886 Q27198 P62375 O27271 A0A0D6J3X3
+                    P45628 Q9C471 P96142 Q99720 P70206 Q2RWM6 C7CXJ5 A0QS88 Q83A84 O14793 Q4DSU0 P04806 P48234
+                    F8W3X3 P26339 Q9LBQ9 Q9CXY6 P50053 A0A250WER3 A7NNM5 C4B8B9 P08411 P35968 O43291 G4ENZ9 Q01939 C5A086
+                    P03436 P30014 Q12314 Q03237 Q08001 P55858 Q05066 Q5ZX93 B1YW99 S5M825 A0A0J9X234 O67413 A0A246CDW5
+                    A9PKC6 Q8VVD2 A7RZU9 P06494 Q15059 O96184 Q5FTL8 Q939T0 C9X2N5 W0G557 A0A3F2YM17 P64423 P54573
+                    Q926Z8 P9WPY9 A0A059Q5E8 G3X982 B4EEE3 P15428 Q26806 P72391 F6H697 P03925 Q04DI1 A0A095TT41 A0A1S4NYF9 P04075 Q9C5R7
+                    O15565 P54652 Q8TAX2 M9MDK9 R4GRT4 A0A0M1WBA0 P11086 Q835Y1 P02752 A7XUK7
+                    P49723 Q58801 Q8YY42 Q55670 Q64346 A0A1V3CQ74 Q7X0D9 W5PVD7 E0RXM0 Q5Y7F6 A0A2K3CRG7 P10898 Q57W62 Q03E61 P28804 P29994
+                    P16293 O25759 P11236 Q6RFZ0 Q32L40 Q5SLP6 A0A140UGH4 Q85FP8 Q9C3Y6 C3SU37
+                    Q8U0N5 D0VWX6 O54050 Q4AE70 Q9H9S0 Q45462 D7PC21 Q5SME6 D0VWR7 P10537 Q8IX01 Q0BRB0 Q3E830 Q58855
+                    Q9V1U8 Q8Y5K1 Q52612 P10809 P0AC69 P08905 Q02934 P00378 Q3SYS0 A0A063XHI7 B2XJG5 B7LFT7 Q52SW3
+                    Q8BL48 C1DGZ6 G0S4H3 O43602 A0A1S6YJF3 Q6QR64 Q7Z144 F8G0M0 A0R5B5 D0A7Z9 B7N6J5 A6LBR3 P16856
+                    P80377 Q7VL95 B8Y5U7 D3KFX5 Q4DIV9 Q92879 O58655 Q84II3 Q9UBU7 P72986 A0A0U4VN94 P32582 P0AC25
+                    Q8WUM0 Q9Z8L4 C4ZCS9 P14207 A0A0K8P8E7 P13647 M4MQ92 Q8U0M5 Q9HUK6 Q86FP9 A0A0M3KKX1 Q8TLW1 A0A4V8GZQ8
+                    A0A161CFW5 D0VWY5 Q46704 Q8LPB4 Q97Z83 B5BP20 A7ZRI8 Q8GME8 Q00610 A0A0H3JWL8 P38348
+                    H9L447 B7MCT6 D1C7H4 E7CH51 Q60I25 Q9I640 G0SHK5 P55776 Q8KRV3 D8IYL4 P70080 Q4QH17 Q56026 P39639
+                    Q95W15 P54619 Q9ERI2 P0A185 H9IUR0 B1YQ53 A0QUH3 Q64845 Q9LL85 P09056 K9TLZ5 P35169
+                    A5IFX1 P0C0E6 A0A3P3Q1W7 P46436 Q81JF8 A0A482LMF4 A0A0H3JX61 P37362 P52732 Q7T2I5
+                    P53974 P00137 Q9R0M6 Q5WFD8 D3E4S5"""
+        self.__unpIdListLong = [uId.strip() for uId in rawS.split(" ") if uId]
         self.__jsonSchemaPath = os.path.join(HERE, "test-data", "json-schema-core_uniprot.json")
 
     def testExchangeObject(self):
@@ -144,6 +168,7 @@ class UniProtUtilsTests(unittest.TestCase):
             fobj = UniProtUtils(saveText=False)
             idList = self.__unpIdList1
             retD, _ = fobj.fetchList(idList)
+            #
             exObjD = fobj.reformat(retD, formatType="exchange")
             if exObjD and self.__export:
                 for rId in exObjD:
@@ -199,14 +224,57 @@ class UniProtUtilsTests(unittest.TestCase):
         """
         try:
             fobj = UniProtUtils(saveText=False)
-            idList = self.__unpIdList1
+            idList = self.__unpIdListLong[:100]
+            logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
             retD, matchD = fobj.fetchList(idList)
+            logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
-            self.assertGreaterEqual(len(retD), len(idList))
+            sumRet = numPrimary + numSecondary + numNone
+            logger.info("sumRet returned %d", sumRet)
+            self.assertGreaterEqual(sumRet, len(idList) - 1)
             if retD and self.__export:
                 for rId in retD:
                     self.__mU.doExport(os.path.join(self.__workPath, rId + ".json"), retD[rId], fmt="json", indent=3)
+            #
+            retD, matchD = fobj.fetchList(idList, usePrimary=False)
+            logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
+            numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
+            logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
+            sumRet = numPrimary + numSecondary + numNone
+            logger.info("sumRet returned %d", sumRet)
+            self.assertGreaterEqual(sumRet, len(idList) - 1)
+            #
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
+
+    def testBatchFetchFailureMode1(self):
+        """ Test batch entry fetch (failure mode)
+        """
+        try:
+            fobj = UniProtUtils(saveText=False, urlPrimary="http://none.none.none")
+            idList = self.__unpIdListLong[:100]
+            logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
+            retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList))
+            logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
+            numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
+            logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
+            sumRet = numPrimary + numSecondary + numNone
+            logger.info("sumRet returned %d", sumRet)
+            self.assertGreaterEqual(sumRet, len(idList) - 1)
+            if retD and self.__export:
+                for rId in retD:
+                    self.__mU.doExport(os.path.join(self.__workPath, rId + ".json"), retD[rId], fmt="json", indent=3)
+            #
+            retD, matchD = fobj.fetchList(idList, usePrimary=False)
+            logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
+            numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
+            logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
+            sumRet = numPrimary + numSecondary + numNone
+            logger.info("sumRet returned %d", sumRet)
+            self.assertGreaterEqual(sumRet, len(idList) - 1)
+            #
         except Exception as e:
             logger.exception("Failing with %s", str(e))
             self.fail()

@@ -26,3 +26,5 @@
   16-Dec-2019    V0.34 Suppress tracebacks for some connection issues.
    3-Feb-2020    V0.35 Update dependencies
    4-Feb-2020    V0.36 Add stricter tests for failed lookup requests.
+   8-Feb-2029    V0.37 Add independent tests for failover, expose more parameter
+                       controls to public methods.
