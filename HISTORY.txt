@@ -28,3 +28,4 @@
    4-Feb-2020    V0.36 Add stricter tests for failed lookup requests.
    8-Feb-2029    V0.37 Add independent tests for failover, expose more parameter
                        controls to public methods.
+  13-Feb-2029    V0.38 Add further uniqueness checks in reformatting Uniprot features.

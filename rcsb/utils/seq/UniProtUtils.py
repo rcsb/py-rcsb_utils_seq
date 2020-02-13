@@ -10,6 +10,7 @@
 ##
 
 import collections
+import json
 import logging
 
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
@@ -275,7 +276,7 @@ class UniProtUtils(object):
             # create index of features =
             # FeatureLabel = collections.namedtuple("FeatureLabel", "type description id evidence reference orginal variation")
             #
-
+            fIndx = {}
             if "features" in uD:
                 fIndxD = {}
                 for fD in uD["features"]:
@@ -322,6 +323,10 @@ class UniProtUtils(object):
                             else:
                                 tD.setdefault("feature_positions", []).append({"seq_id": int(fD["position"])})
                     #
+                    serialD = json.dumps(tD, sort_keys=True)
+                    if serialD in fIndx:
+                        continue
+                    fIndx[serialD] = True
                     rD.setdefault("rcsb_uniprot_feature", []).append(tD)
             #
             rObj[uId] = rD
