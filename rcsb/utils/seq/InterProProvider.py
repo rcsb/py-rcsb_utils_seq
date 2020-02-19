@@ -125,6 +125,25 @@ class InterProProvider(object):
             pass
         return None
 
+    def getTreeNodeList(self, filterD=None):
+        dL = []
+        try:
+            for idCode, _ in self.__interProD.items():
+                if filterD and not idCode in filterD:
+                    continue
+                displayName = self.getDescription(idCode)
+                pId = self.getParentId(idCode)
+                linL = self.getLineage(idCode)
+                #
+                if pId is None:
+                    dD = {"id": idCode, "name": displayName, "depth": 0}
+                else:
+                    dD = {"id": idCode, "name": displayName, "parents": [pId], "depth": len(linL) - 1}
+                dL.append(dD)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return dL
+
     def __getInterProParents(self, filePath):
         """Read the InterPro parent hierarchy and return a dictionary parent ids.
 
