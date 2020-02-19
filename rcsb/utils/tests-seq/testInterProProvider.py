@@ -62,8 +62,9 @@ class InterProProviderTests(unittest.TestCase):
         logger.debug("lin %r", linL)
         self.assertEqual(len(linL), 4)
         tL = ipP.getTreeNodeList()
-        logger.info("tree list %r", tL[:50])
+        logger.debug("tree list %r", tL[:50])
         logger.info("tree node list length %d", len(tL))
+        self.assertGreaterEqual(len(tL), 30000)
 
     def testInterProCacheFallBack(self):
         ipP = InterProProvider(urlTargetInterPro="https://rcsb.org/t.txt", cachePath=self.__cachePath, useCache=False)
