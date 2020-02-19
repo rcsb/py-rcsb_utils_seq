@@ -6,6 +6,7 @@
 
 import logging
 import os
+import sys
 
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
@@ -129,7 +130,7 @@ class InterProProvider(object):
         dL = []
         try:
             for idCode, _ in self.__interProD.items():
-                if filterD and not idCode in filterD:
+                if filterD and idCode not in filterD:
                     continue
                 displayName = self.getDescription(idCode)
                 pId = self.getParentId(idCode)
@@ -180,7 +181,8 @@ class InterProProvider(object):
         """
 
         interProD = {}
-        rowL = self.__mU.doImport(filePath, fmt="tdd", rowFormat="list")
+        encodingD = {"encoding": "ascii"} if sys.version_info[0] < 3 else {}
+        rowL = self.__mU.doImport(filePath, fmt="tdd", rowFormat="list", **encodingD)
         for row in rowL:
             try:
                 interProId = row[0].strip().upper()

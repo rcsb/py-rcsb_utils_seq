@@ -6,6 +6,7 @@
 
 import logging
 import os
+import sys
 
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
@@ -74,7 +75,8 @@ class PfamProvider(object):
         #
         """
         pfamD = {}
-        rowL = self.__mU.doImport(filePath, fmt="tdd", rowFormat="list")
+        encodingD = {"encoding": "ascii"} if sys.version_info[0] < 3 else {}
+        rowL = self.__mU.doImport(filePath, fmt="tdd", rowFormat="list", **encodingD)
         for row in rowL:
             try:
                 pfamId = row[0].strip().upper()
