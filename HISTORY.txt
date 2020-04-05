@@ -31,3 +31,4 @@
   13-Feb-2020    V0.38 Add further uniqueness checks in reformatting Uniprot features.
   18-Feb-2020    V0.39 Add Pfam and InterPro annotation providers
   18-Feb-2020    V0.40 Handle encoding issues for Py27
+   5-Apr-2020    V0.41 Adjust logging details for UniProt fetchlist
