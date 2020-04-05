@@ -120,11 +120,11 @@ class UniProtUtils(object):
             searchIdList = list(set(searchIdList))
             subLists = self.__makeSubLists(maxChunkSize, searchIdList)
             # numLists = len(searchIdList) / maxChunkSize + 1
-            numLists = len(subLists)
+            # numLists = len(subLists)
 
             for ii, subList in enumerate(subLists):
                 logger.debug("Fetching subList %r", subList)
-                logger.debug("Starting fetching for sublist %d/%d", ii + 1, numLists)
+                logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
                 logger.debug("Status %r", ok)
