@@ -32,3 +32,4 @@
   18-Feb-2020    V0.39 Add Pfam and InterPro annotation providers
   18-Feb-2020    V0.40 Handle encoding issues for Py27
    5-Apr-2020    V0.41 Adjust logging details for UniProt fetchlist
+  20-Jun-2020    V0.42 Add method fetchSequenceList() to fetch fasta sequences

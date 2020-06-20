@@ -13,6 +13,7 @@ import collections
 import json
 import logging
 
+from rcsb.utils.io.FastaUtil import FastaUtil
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
 from rcsb.utils.seq.UniProtReader import UniProtReader
 
@@ -367,7 +368,7 @@ class UniProtUtils(object):
             ok = retCode in [200] and ret and len(ret) > 0
         #
         if retryAltApi and not ok:
-            logger.info("Using secondary service site")
+            logger.info("Retrying using secondary service site")
             ret, retCode = self.__doRequestSecondary(idList)
             ok = retCode in [200] and ret and len(ret) > 0
         #
@@ -425,3 +426,87 @@ class UniProtUtils(object):
     def __makeSubListsWithPadding(self, num, iterable, padvalue=None):
         "__sublist(3, 'abcdefg', 'x') --> ('a','b','c'), ('d','e','f'), ('g','x','x')"
         return zip_longest(*[iter(iterable)] * num, fillvalue=padvalue)
+
+    def fetchSequenceList(self, unpIdList):
+        return self.__doSequenceRequest(unpIdList)
+
+    def __doSequenceRequest(self, unpIdList, retryAltApi=True, usePrimary=True):
+        ok = False
+        if usePrimary:
+            ok, sD = self.__doSequenceRequestPrimary(unpIdList)
+        #
+        if retryAltApi and not ok:
+            tIdList = set(unpIdList) - set(sD.keys())
+            logger.info("Retrying using secondary service site for (%d) id codes", len(tIdList))
+            ok, tD = self.__doSequenceRequestSecondary(tIdList)
+            if tD:
+                sD.update(tD)
+        #
+        #
+        return ok, sD
+
+    def __doSequenceRequestPrimary(self, unpIdList):
+        """
+        """
+        sD = {}
+        fmt = "fasta"
+        baseUrl = self.__urlPrimary
+        hD = {"Accept": "text/x-fasta"}
+        pD = {}
+        ureq = UrlRequestUtil()
+        ok = True
+        for unpId in unpIdList:
+            endPoint = "uniprot/" + unpId + "." + fmt
+            ret, retCode = ureq.getUnWrapped(baseUrl, endPoint, pD, headers=hD)
+            logger.debug("unpId %r url %s endpoint %r ret %r retCode %r", unpId, baseUrl, endPoint, ret, retCode)
+            if retCode in [200] and ret and len(ret) > 0:
+                rOk, seqId, rD = self.__parseFastaResponse(ret)
+                if rOk:
+                    sD[seqId] = rD
+                else:
+                    logger.error("Parsing error in sequence data for %r", unpId)
+            else:
+                ok = False
+        return ok, sD
+
+    def __doSequenceRequestSecondary(self, unpIdList):
+        """
+        """
+        sD = {}
+        baseUrl = self.__urlSecondary
+        hD = {"Accept": "text/x-fasta"}
+        pD = {}
+        ok = True
+        for unpId in unpIdList:
+            endPoint = "proteins/api/proteins/" + unpId
+            ureq = UrlRequestUtil()
+            ret, retCode = ureq.getUnWrapped(baseUrl, endPoint, pD, headers=hD)
+            if retCode in [200] and ret and len(ret) > 0:
+                rOk, seqId, rD = self.__parseFastaResponse(ret)
+                if rOk:
+                    sD[seqId] = rD
+                else:
+                    logger.error("Parsing error in sequence data for %r", unpId)
+            else:
+                ok = False
+        return ok, sD
+
+    def __parseFastaResponse(self, rspS):
+        """Parse the text response for FASTA data -
+
+        Args:
+            rspS (str): string response containing FASTA data
+
+        Retuns:
+            (seqId, dict):  {seqId: {'sequence': 'AAAAAA', 'ky1": va1, ... }}
+        """
+        faU = FastaUtil()
+        cD = {}
+        try:
+            rL = rspS.splitlines()
+            seqId, cD = faU.parseComment(rL[0], "uniprot")
+            ok, cD["sequence"] = faU.cleanSequence("".join(rL[1:]))
+            return ok, seqId, cD
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return None, cD

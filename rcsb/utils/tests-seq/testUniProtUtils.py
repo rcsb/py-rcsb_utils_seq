@@ -35,7 +35,7 @@ logger = logging.getLogger()
 
 class UniProtUtilsTests(unittest.TestCase):
     def setUp(self):
-        self.__export = False
+        self.__export = True
         self.__mU = MarshalUtil()
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
         #
@@ -141,6 +141,23 @@ class UniProtUtilsTests(unittest.TestCase):
                     P53974 P00137 Q9R0M6 Q5WFD8 D3E4S5"""
         self.__unpIdListLong = [uId.strip() for uId in rawS.split(" ") if uId]
         self.__jsonSchemaPath = os.path.join(HERE, "test-data", "json-schema-core_uniprot.json")
+
+    def testFetchSequenceList(self):
+        """ Test fetch UniProt sequence data (FASTA)
+        """
+        try:
+            #
+            fobj = UniProtUtils(saveText=False)
+            # Note: this list contains one obsolete entry
+            idList = self.__unpIdList1
+            ok, sD = fobj.fetchSequenceList(idList)
+            self.assertFalse(ok)
+            self.assertEqual(len(sD), len(idList) - 1)
+            if self.__export:
+                self.__mU.doExport(os.path.join(self.__workPath, "data-sequences.json"), sD, fmt="json", indent=3)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
 
     def testExchangeObject(self):
         """ Test fetch exchange objects
