@@ -54,7 +54,7 @@ class InterProProviderTests(unittest.TestCase):
         #
         txt = ipP.getType(idCode)
         logger.info("InterPro %s type %s", idCode, txt)
-        ok = txt.startswith("Repeat")
+        ok = txt.startswith("repeat")
         self.assertTrue(ok)
 
         idCode = "IPR023678"
