@@ -84,6 +84,15 @@ class SiftsSummaryProvider(object):
             pass
         return aL
 
+    def getSeqAlignObjList(self, entryId, authAsymId):
+        saoL = []
+        try:
+            # aL = self.__ssD[entryId][authAsymId]["UNPAL"]
+            saoL = [SeqAlign("SIFTS", **sa) for sa in self.__ssD[entryId][authAsymId]["UNPAL"]]
+        except Exception:
+            pass
+        return saoL
+
     def getLongestAlignments(self, entryId, authAsymIdL):
         """ Return the longest unique SIFTS alignments for the input entity instances.
 
@@ -438,9 +447,10 @@ class SiftsSummaryProvider(object):
             # authSeqBeg = int(rowD["PDB_BEG"]) if rowD["PDB_BEG"].isdigit() else None
             # authSeqEnd = int(rowD["PDB_END"]) if rowD["PDB_END"].isdigit() else None
             unpSeqBeg = int(rowD["SP_BEG"]) if rowD["SP_BEG"].isdigit() else None
-            # unpSeqEnd = int(rowD["SP_END"]) if rowD["SP_END"].isdigit() else None
+            unpSeqEnd = int(rowD["SP_END"]) if rowD["SP_END"].isdigit() else None
             # dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
-            dD = {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
+            # dD = {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
+            dD = {"UP": unpId, "BG": entitySeqBeg, "LEN": entityLength, "UBG": unpSeqBeg, "UND": unpSeqEnd}
             uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPAL", []).append(dD)
             uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
             #

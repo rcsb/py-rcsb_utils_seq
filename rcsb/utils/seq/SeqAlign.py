@@ -86,7 +86,7 @@ class SeqAlign(object):
             self.__entityAlignLength = kwargs.get("LEN", None)
             self.__entitySeqIdEnd = self.__entitySeqIdBeg + self.__entityAlignLength - 1
             self.__dbSeqIdBeg = kwargs.get("UBG", None)
-            self.__dbSeqIdEnd = None
+            self.__dbSeqIdEnd = kwargs.get("UND", None)
             self.__dbName = "UNP"
             self.__dbAccession = kwargs.get("UP", None)
             self.__dbIsoform = None
