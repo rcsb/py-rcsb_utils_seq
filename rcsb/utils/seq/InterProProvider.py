@@ -20,9 +20,9 @@ class InterProProvider(object):
     """
 
     def __init__(self, **kwargs):
-        urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/entry.list")
+        urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current/entry.list")
         urlTargetInterProFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/entry.list"
-        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/ParentChildTreeFile.txt")
+        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current/ParentChildTreeFile.txt")
         urlTargetInterProParentFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/ParentChildTreeFile.txt"
         cachePath = kwargs.get("cachePath", ".")
         dirPath = os.path.join(cachePath, "interPro")
