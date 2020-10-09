@@ -22,53 +22,53 @@ logger = logging.getLogger(__name__)
 class UniProtReader(object):
     """Read Uniprot entry xml file and put the following information into  dictionary:
 
-           dict['db_code']           - code
-           dict['db_accession']      - primary accession code
-           dict['accessions']        - all accessions
-           dict['sequence']          - sequence
-           dict['keywords']           - keywords
-           dict['names']              - protein names
-           dict['gene']               - gene names
-           dict['source_scientific'] - source scientific name
-           dict['source_common']     - source common name
-           dict['taxonomy_id']       - source taxonomy ID
-           dict['comments']          - Uniprot comments
-           dict['dbReferences']      - various related annotations
+        dict['db_code']           - code
+        dict['db_accession']      - primary accession code
+        dict['accessions']        - all accessions
+        dict['sequence']          - sequence
+        dict['keywords']           - keywords
+        dict['names']              - protein names
+        dict['gene']               - gene names
+        dict['source_scientific'] - source scientific name
+        dict['source_common']     - source common name
+        dict['taxonomy_id']       - source taxonomy ID
+        dict['comments']          - Uniprot comments
+        dict['dbReferences']      - various related annotations
 
-        If there is a registered variant, <isoform> tags are parsed:
+     If there is a registered variant, <isoform> tags are parsed:
 
-           <isoform>
-             <id>P42284-2</id>
-             <name>V</name>
-             <name>Ohsako-G</name>
-             <sequence type="displayed"/>
-           </isoform>
-           <isoform>
-             <id>P42284-3</id>
-             <name>H</name>
-             <name>Ohsako-M</name>
-             <sequence type="described" ref="VSP_015404 VSP_015406"/>
-           </isoform>
+        <isoform>
+          <id>P42284-2</id>
+          <name>V</name>
+          <name>Ohsako-G</name>
+          <sequence type="displayed"/>
+        </isoform>
+        <isoform>
+          <id>P42284-3</id>
+          <name>H</name>
+          <name>Ohsako-M</name>
+          <sequence type="described" ref="VSP_015404 VSP_015406"/>
+        </isoform>
 
-       and <feature type="splice variant"> tags:
+    and <feature type="splice variant"> tags:
 
-           <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
-             <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
-             <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
-             <location>
-               <begin position="455"/>
-               <end position="518"/>
-             </location>
-           </feature>
-           <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
-             <location>
-               <begin position="519"/>
-               <end position="549"/>
-             </location>
-           </feature>
+        <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
+          <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
+          <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
+          <location>
+            <begin position="455"/>
+            <end position="518"/>
+          </location>
+        </feature>
+        <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
+          <location>
+            <begin position="519"/>
+            <end position="549"/>
+          </location>
+        </feature>
 
-       to find the isoform sequence. If no match found, the default sequence from <sequence> tag
-       will be used.
+    to find the isoform sequence. If no match found, the default sequence from <sequence> tag
+    will be used.
     """
 
     def __init__(self):
@@ -100,8 +100,7 @@ class UniProtReader(object):
         return eDict
 
     def addVariant(self, accessionId, varId):
-        """ Register a variant id with the input accession code.
-        """
+        """Register a variant id with the input accession code."""
         try:
             self.__variantD[varId] = accessionId
             return True
@@ -109,8 +108,7 @@ class UniProtReader(object):
             return False
 
     def __updateAccessionDict(self):
-        """ Update the list of registered variants for each accession code.
-        """
+        """Update the list of registered variants for each accession code."""
         self.__accessionD = {}
         for vId, aId in self.__variantD.items():
             self.__accessionD.setdefault(aId, []).append(vId)
@@ -166,6 +164,9 @@ class UniProtReader(object):
                 elif node.tagName == "organism":
                     self.__getSourceOrganism(node.childNodes, tDict)
 
+                elif node.tagName == "organismHost":
+                    self.__getOrganismHost(node.childNodes, tDict)
+
                 elif node.tagName == "dbReference":
                     self.__getDbReference(node, tDict)
 
@@ -220,42 +221,42 @@ class UniProtReader(object):
         """[summary]
 
 
-            Examples -
-                    <feature type="sequence conflict" description="In Ref. 2; AAA37242." ref="2" evidence="5">
-                        <original>I</original>
-                        <variation>M</variation>
-                        <location>
-                            <position position="106"/>
-                        </location>
-                    </feature>
-                    <feature type="sequence conflict" description="In Ref. 2; AAA40578/AAA37242." ref="2" evidence="5">
-                        <original>A</original>
-                        <variation>T</variation>
-                        <location>
-                    </feature>
-                    <feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
+        Examples -
+                <feature type="sequence conflict" description="In Ref. 2; AAA37242." ref="2" evidence="5">
+                    <original>I</original>
+                    <variation>M</variation>
                     <location>
-                        <position position="103"/>
+                        <position position="106"/>
                     </location>
-                    <feature type="disulfide bond" evidence="3 4">
+                </feature>
+                <feature type="sequence conflict" description="In Ref. 2; AAA40578/AAA37242." ref="2" evidence="5">
+                    <original>A</original>
+                    <variation>T</variation>
                     <location>
-                        <begin position="167"/>
-                        <end position="253"/>
+                </feature>
+                <feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
+                <location>
+                    <position position="103"/>
+                </location>
+                <feature type="disulfide bond" evidence="3 4">
+                <location>
+                    <begin position="167"/>
+                    <end position="253"/>
+                </location>
+                <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
+                    <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
+                    <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
+                    <location>
+                        <begin position="455"/>
+                        <end position="518"/>
                     </location>
-                    <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
-                        <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
-                        <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
-                        <location>
-                            <begin position="455"/>
-                            <end position="518"/>
-                        </location>
-                    </feature>
-                    <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
-                        <location>
-                            <begin position="519"/>
-                            <end position="549"/>
-                        </location>
-                    </feature>
+                </feature>
+                <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
+                    <location>
+                        <begin position="519"/>
+                        <end position="549"/>
+                    </location>
+                </feature>
 
 
         """
@@ -363,19 +364,19 @@ class UniProtReader(object):
 
     def __getProteinNames(self, nodeList, tDict):
         """In content:
-              <recommendedName>
-                <fullName>Platelet-derived growth factor subunit B</fullName>
-                <shortName>PDGF subunit B</shortName>
-              </recommendedName>
-              <alternativeName>
-                <fullName>Platelet-derived growth factor B chain</fullName>
-              </alternativeName>
-              <alternativeName>
-                <fullName>Platelet-derived growth factor beta polypeptide</fullName>
-              </alternativeName>
-              .....
-            Get protein name from <recommendedName><fullName>...</fullName></recommendedName>
-            and put rest names to synonyms using comma separator
+          <recommendedName>
+            <fullName>Platelet-derived growth factor subunit B</fullName>
+            <shortName>PDGF subunit B</shortName>
+          </recommendedName>
+          <alternativeName>
+            <fullName>Platelet-derived growth factor B chain</fullName>
+          </alternativeName>
+          <alternativeName>
+            <fullName>Platelet-derived growth factor beta polypeptide</fullName>
+          </alternativeName>
+          .....
+        Get protein name from <recommendedName><fullName>...</fullName></recommendedName>
+        and put rest names to synonyms using comma separator
         """
 
         for node in nodeList:
@@ -389,8 +390,8 @@ class UniProtReader(object):
     def __getNames(self, nodeList, nameType=None):
         """Get names from <fullName> & <shortName> tags:
 
-                <fullName>Platelet-derived growth factor subunit B</fullName>
-                <shortName>PDGF subunit B</shortName>
+        <fullName>Platelet-derived growth factor subunit B</fullName>
+        <shortName>PDGF subunit B</shortName>
         """
         dD = {}
         for node in nodeList:
@@ -406,12 +407,12 @@ class UniProtReader(object):
 
     def __getGeneNames(self, nodeList, tDict):
         """Get genes from
-              <gene>
-                <name type="primary">PDGFB</name>
-                <name type="synonym">PDGF2</name>
-                <name type="synonym">SIS</name>
-              </gene>
-           and concatenate them using comma separator
+           <gene>
+             <name type="primary">PDGFB</name>
+             <name type="synonym">PDGF2</name>
+             <name type="synonym">SIS</name>
+           </gene>
+        and concatenate them using comma separator
         """
         for node in nodeList:
             if node.nodeType != node.ELEMENT_NODE:
@@ -421,11 +422,37 @@ class UniProtReader(object):
                 tType = node.attributes["type"].value
                 tDict.setdefault("gene", []).append({"name": node.firstChild.data, "type": tType})
 
+    def __getOrganismHost(self, nodeList, tDict):
+        """
+        <organismHost>
+            <name type="scientific">Homo sapiens</name>
+            <name type="common">Human</name>
+            <dbReference type="NCBI Taxonomy" id="9606"/>
+        </organismHost>
+        """
+        for node in nodeList:
+            if node.nodeType != node.ELEMENT_NODE:
+                continue
+
+            if node.tagName == "name":
+                tType = node.attributes["type"]
+                if tType:
+                    if tType.value == "scientific":
+                        tDict["host_source_scientific"] = node.firstChild.data
+                    elif tType.value == "common":
+                        tDict["host_source_common"] = node.firstChild.data
+
+            elif node.tagName == "dbReference":
+                tType = node.attributes["type"]
+
+                if tType and tType.value == "NCBI Taxonomy":
+                    tDict["host_taxonomy_id"] = int(node.attributes["id"].value)
+
     def __getSourceOrganism(self, nodeList, tDict):
         """Get organism's scientific name, common name and NCBI Taxonomy ID from
-               <name type="scientific">Homo sapiens</name>
-               <name type="common">Human</name>
-               <dbReference type="NCBI Taxonomy" key="1" id="9606"/>
+        <name type="scientific">Homo sapiens</name>
+        <name type="common">Human</name>
+        <dbReference type="NCBI Taxonomy" key="1" id="9606"/>
         """
         for node in nodeList:
             if node.nodeType != node.ELEMENT_NODE:
@@ -448,25 +475,25 @@ class UniProtReader(object):
 
     def __getComments(self, node, tDict):
         """From
-              <comment type="function">
-                <text>Platelet-derived .... </text>
-              </comment>
-              <comment type="subunit" evidence="EC1">
-                <text status="by similarity">Antiparallel disulfide-linked .... </text>
-              </comment>
-              <comment type="miscellaneous">
-                <text>A-A and B-B, as well as A-B, dimers can bind to the PDGF receptor.</text>
-              </comment>
-              <comment type="similarity">
-                <text>Belongs to the PDGF/VEGF growth factor family.</text>
-              </comment>
-              .....
-              <comment type="online information" name="Regranex">
-                <link uri="http://www.regranex.com/"/>
-                <text>Clinical information on Regranex</text>
-              </comment>
-           Get "type": "text" content and concatenate them using newline separator
-           Comments from <comment type="online information"> will be ignored.
+           <comment type="function">
+             <text>Platelet-derived .... </text>
+           </comment>
+           <comment type="subunit" evidence="EC1">
+             <text status="by similarity">Antiparallel disulfide-linked .... </text>
+           </comment>
+           <comment type="miscellaneous">
+             <text>A-A and B-B, as well as A-B, dimers can bind to the PDGF receptor.</text>
+           </comment>
+           <comment type="similarity">
+             <text>Belongs to the PDGF/VEGF growth factor family.</text>
+           </comment>
+           .....
+           <comment type="online information" name="Regranex">
+             <link uri="http://www.regranex.com/"/>
+             <text>Clinical information on Regranex</text>
+           </comment>
+        Get "type": "text" content and concatenate them using newline separator
+        Comments from <comment type="online information"> will be ignored.
         """
 
         tType = node.attributes["type"]
@@ -477,7 +504,7 @@ class UniProtReader(object):
 
     def __getText(self, nodeList):
         """Get text value from
-           <text status="by similarity">Antiparallel disulfide-linked .... </text>
+        <text status="by similarity">Antiparallel disulfide-linked .... </text>
         """
         for node in nodeList:
             if node.nodeType != node.ELEMENT_NODE:
@@ -491,7 +518,7 @@ class UniProtReader(object):
     def __getIsoFormSeq(self, doc, vId, tDict):
         """Get isoform sequence for vId if it exists  -
 
-           Returns: bool, bool, isoformD  status, sequenceUpdatedFlag, isoform name/type Dictionary
+        Returns: bool, bool, isoformD  status, sequenceUpdatedFlag, isoform name/type Dictionary
         """
         logger.debug("Starting vId %s", vId)
         try:
@@ -535,23 +562,23 @@ class UniProtReader(object):
 
     def __getIsoFormIds(self, doc):
         """Get isoform information from:
-               <isoform>
-                 <id>P42284-2</id>
-                 <name>V</name>
-                 <name>Ohsako-G</name>
-                 <sequence type="displayed"/>
-               </isoform>
-               <isoform>
-                 <id>P42284-3</id>
-                 <name>H</name>
-                 <name>Ohsako-M</name>
-                 <sequence type="described" ref="VSP_015404 VSP_015406"/>
-               </isoform>
+            <isoform>
+              <id>P42284-2</id>
+              <name>V</name>
+              <name>Ohsako-G</name>
+              <sequence type="displayed"/>
+            </isoform>
+            <isoform>
+              <id>P42284-3</id>
+              <name>H</name>
+              <name>Ohsako-M</name>
+              <sequence type="described" ref="VSP_015404 VSP_015406"/>
+            </isoform>
 
-           and put them into dictionary:
+        and put them into dictionary:
 
-               { 'P42284-2' : { 'type' : 'displayed'},
-                 'P42284-3' : { 'type' : 'described', 'ref' : 'VSP_015404 VSP_015406' } }
+            { 'P42284-2' : { 'type' : 'displayed'},
+              'P42284-3' : { 'type' : 'described', 'ref' : 'VSP_015404 VSP_015406' } }
         """
         tDict = {}
         entryList = doc.getElementsByTagName("isoform")
@@ -597,25 +624,25 @@ class UniProtReader(object):
     def __getIsoFormRefs(self, doc):
         """Get variant information from
 
-               <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
-                 <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
-                 <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
-                 <location>
-                   <begin position="455"/>
-                   <end position="518"/>
-                 </location>
-               </feature>
-               <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
-                 <location>
-                   <begin position="519"/>
-                   <end position="549"/>
-                 </location>
-               </feature>
+            <feature type="splice variant" id="VSP_015404" description="(in isoform H)">
+              <original>DVSTNQTVVLPHYSIYHYYSNIYYLLSHTTIYEADRTVSVSCPGKLNCLPQRNDLQETKSVTVL</original>
+              <variation>DEAGQNEGGESRIRVRNWLMLADKSIIGKSSDEPSVLHIVLLLSTHRHIISFLLIIQSFIDKIY</variation>
+              <location>
+                <begin position="455"/>
+                <end position="518"/>
+              </location>
+            </feature>
+            <feature type="splice variant" id="VSP_015406" description="(in isoform H)">
+              <location>
+                <begin position="519"/>
+                <end position="549"/>
+              </location>
+            </feature>
 
-           and put them into dictionary:
+        and put them into dictionary:
 
-               { 'VSP_015404' : { 'begin' : '455', 'end' : '518', 'variation' : 'DEAGQNEGG....' },
-                 'VSP_015406' : { 'begin' : '519', 'end' : '549' } }
+            { 'VSP_015404' : { 'begin' : '455', 'end' : '518', 'variation' : 'DEAGQNEGG....' },
+              'VSP_015406' : { 'begin' : '519', 'end' : '549' } }
         """
         dic = {}
         entryList = doc.getElementsByTagName("feature")
@@ -664,7 +691,7 @@ class UniProtReader(object):
     def __processIsoFormSeq(self, seq, ref):
         """Manipulate sequence using information from dictionary ref:
 
-               { 'begin' : '455', 'end' : '518', 'variation' : 'DEAGQNEGG....' }
+        { 'begin' : '455', 'end' : '518', 'variation' : 'DEAGQNEGG....' }
         """
         begin = int(ref["begin"]) - 1
         end = int(ref["end"])
