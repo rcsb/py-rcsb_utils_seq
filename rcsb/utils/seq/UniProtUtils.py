@@ -151,13 +151,13 @@ class UniProtUtils(object):
         return referenceD, matchD
 
     def rebuildMatchResultIndex(self, idList, referenceD):
-        """     Rebuild the search result index for the input id list.
-                The input list is filtered for variants (e.g. ids with appended '-#').
+        """Rebuild the search result index for the input id list.
+        The input list is filtered for variants (e.g. ids with appended '-#').
 
-                Divide the input list into manageable chunks, fetch each chunk,
-                and concatenate the result.
+        Divide the input list into manageable chunks, fetch each chunk,
+        and concatenate the result.
 
-                Return dict: dictionary index of search match results
+        Return dict: dictionary index of search match results
 
         """
         try:
@@ -375,8 +375,7 @@ class UniProtUtils(object):
         return ok, ret
 
     def __doRequestPrimary(self, idList):
-        """
-        """
+        """"""
         baseUrl = self.__urlPrimary
         endPoint = "uploadlists"
         hL = [("Accept", "application/xml")]
@@ -427,11 +426,12 @@ class UniProtUtils(object):
         "__sublist(3, 'abcdefg', 'x') --> ('a','b','c'), ('d','e','f'), ('g','x','x')"
         return zip_longest(*[iter(iterable)] * num, fillvalue=padvalue)
 
-    def fetchSequenceList(self, unpIdList):
-        return self.__doSequenceRequest(unpIdList)
+    def fetchSequenceList(self, unpIdList, retryAltApi=True, usePrimary=True):
+        return self.__doSequenceRequest(unpIdList, retryAltApi=retryAltApi, usePrimary=usePrimary)
 
     def __doSequenceRequest(self, unpIdList, retryAltApi=True, usePrimary=True):
         ok = False
+        sD = {}
         if usePrimary:
             ok, sD = self.__doSequenceRequestPrimary(unpIdList)
         #
@@ -446,8 +446,7 @@ class UniProtUtils(object):
         return ok, sD
 
     def __doSequenceRequestPrimary(self, unpIdList):
-        """
-        """
+        """"""
         sD = {}
         fmt = "fasta"
         baseUrl = self.__urlPrimary
@@ -470,8 +469,7 @@ class UniProtUtils(object):
         return ok, sD
 
     def __doSequenceRequestSecondary(self, unpIdList):
-        """
-        """
+        """"""
         sD = {}
         baseUrl = self.__urlSecondary
         hD = {"Accept": "text/x-fasta"}

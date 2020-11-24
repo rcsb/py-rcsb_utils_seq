@@ -45,7 +45,8 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__usePrimary = False
         self.__retryAltApi = True
         #
-        self.__unpIdList1 = ["P20937", "P21877", "P22868", "P23832"]
+        self.__unpIdList1 = ["P20937", "P22868", "P23832", "P21877"]
+        self.__unpIdList3 = ["P20937", "P22868", "P23832"]
         self.__unpIdList2 = [
             "P29490",
             "P29496",
@@ -152,7 +153,7 @@ class UniProtUtilsTests(unittest.TestCase):
             fobj = UniProtUtils(saveText=False)
             # Note: this list contains one obsolete entry
             idList = self.__unpIdList1
-            ok, sD = fobj.fetchSequenceList(idList)
+            ok, sD = fobj.fetchSequenceList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             self.assertFalse(ok)
             self.assertEqual(len(sD), len(idList) - 1)
             if self.__export:
@@ -216,9 +217,10 @@ class UniProtUtilsTests(unittest.TestCase):
 
     def testFetchIds(self):
         """Test individual entry fetch"""
+        idList = None
         try:
             fobj = UniProtUtils(saveText=True)
-            for tId in self.__unpIdList1:
+            for tId in self.__unpIdList3:
                 idList = [tId]
                 retD, matchD = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
                 numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
@@ -232,7 +234,7 @@ class UniProtUtilsTests(unittest.TestCase):
                     fobj.writeUnpXml(os.path.join(self.__workPath, tId + ".xml"))
                     self.__mU.doExport(os.path.join(self.__workPath, tId + ".json"), retD, fmt="json", indent=3)
         except Exception as e:
-            logger.exception("Failing with %s", str(e))
+            logger.exception("Failing with idList %r %s", idList, str(e))
             self.fail()
 
     def testBatchFetch(self):
