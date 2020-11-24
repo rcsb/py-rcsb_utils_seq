@@ -40,7 +40,10 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
         #
         self.__workPath = os.path.join(HERE, "test-output")
-        # Pick up site information from the environment or failover to the development site id.
+        #
+        # These settings are for issues with Ubuntu 20.08  (primary site is not reliable)
+        self.__usePrimary = False
+        self.__retryAltApi = True
         #
         self.__unpIdList1 = ["P20937", "P21877", "P22868", "P23832"]
         self.__unpIdList2 = [
@@ -143,8 +146,7 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__jsonSchemaPath = os.path.join(HERE, "test-data", "json-schema-core_uniprot.json")
 
     def testFetchSequenceList(self):
-        """ Test fetch UniProt sequence data (FASTA)
-        """
+        """Test fetch UniProt sequence data (FASTA)"""
         try:
             #
             fobj = UniProtUtils(saveText=False)
@@ -160,13 +162,12 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testExchangeObject(self):
-        """ Test fetch exchange objects
-        """
+        """Test fetch exchange objects"""
         try:
             #
             fobj = UniProtUtils(saveText=False)
             idList = self.__unpIdList1
-            retD, _ = fobj.fetchList(idList)
+            retD, _ = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             exObjD = fobj.reformat(retD, formatType="exchange")
             if exObjD and self.__export:
                 for rId in exObjD:
@@ -176,15 +177,14 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testValidateExchangeObject(self):
-        """ Test fetch exchange objects
-        """
+        """Test fetch exchange objects"""
         try:
             #
             sD = self.__mU.doImport(self.__jsonSchemaPath, "json")
             #
             fobj = UniProtUtils(saveText=False)
             idList = self.__unpIdList1
-            retD, _ = fobj.fetchList(idList)
+            retD, _ = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             #
             exObjD = fobj.reformat(retD, formatType="exchange")
             if exObjD and self.__export:
@@ -215,13 +215,12 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testFetchIds(self):
-        """ Test individual entry fetch
-        """
+        """Test individual entry fetch"""
         try:
             fobj = UniProtUtils(saveText=True)
             for tId in self.__unpIdList1:
                 idList = [tId]
-                retD, matchD = fobj.fetchList(idList)
+                retD, matchD = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
                 numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
                 logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
                 #
@@ -237,13 +236,12 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testBatchFetch(self):
-        """ Test batch entry fetch
-        """
+        """Test batch entry fetch"""
         try:
             fobj = UniProtUtils(saveText=False)
             idList = self.__unpIdListLong[:100]
             logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
-            retD, matchD = fobj.fetchList(idList)
+            retD, matchD = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
@@ -254,7 +252,7 @@ class UniProtUtilsTests(unittest.TestCase):
                 for rId in retD:
                     self.__mU.doExport(os.path.join(self.__workPath, rId + ".json"), retD[rId], fmt="json", indent=3)
             #
-            retD, matchD = fobj.fetchList(idList, usePrimary=False)
+            retD, matchD = fobj.fetchList(idList, usePrimary=False, retryAltApi=True)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
@@ -267,13 +265,12 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testBatchFetchFailureMode1(self):
-        """ Test batch entry fetch (failure mode)
-        """
+        """Test batch entry fetch (failure mode)"""
         try:
             fobj = UniProtUtils(saveText=False, urlPrimary="http://none.none.none")
             idList = self.__unpIdListLong[:100]
             logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
-            retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList))
+            retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
@@ -284,7 +281,7 @@ class UniProtUtilsTests(unittest.TestCase):
                 for rId in retD:
                     self.__mU.doExport(os.path.join(self.__workPath, rId + ".json"), retD[rId], fmt="json", indent=3)
             #
-            retD, matchD = fobj.fetchList(idList, usePrimary=False)
+            retD, matchD = fobj.fetchList(idList, usePrimary=False, retryAltApi=True)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
@@ -297,12 +294,11 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testFetchVariantIds(self):
-        """ Test individual variant entry fetch
-        """
+        """Test individual variant entry fetch"""
         try:
             fobj = UniProtUtils(saveText=True)
             for tId in self.__unpIdListV:
-                retD, matchD = fobj.fetchList([tId])
+                retD, matchD = fobj.fetchList([tId], usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
                 numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
                 logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
                 self.assertGreaterEqual(len(retD), 1)
@@ -327,11 +323,10 @@ class UniProtUtilsTests(unittest.TestCase):
             self.fail()
 
     def testBatchFetchVariants(self):
-        """  Test batch variant entry fetch
-        """
+        """Test batch variant entry fetch"""
         try:
             fobj = UniProtUtils(saveText=True)
-            retD, matchD = fobj.fetchList(self.__unpIdListV)
+            retD, matchD = fobj.fetchList(self.__unpIdListV, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
             self.assertGreaterEqual(len(retD), len(self.__unpIdListV))
