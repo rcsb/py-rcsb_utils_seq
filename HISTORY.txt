@@ -36,3 +36,4 @@
   22-Jun-2020    V0.43 Add methods to return SeqAlign() from SIFTS data.
   23-Aug-2020    V0.43 Adjust InterPro ftp URL references.
    9-Oct-2020    V0.44 Add organism host taxonomy
+  24-Oct-2020    V0.46 Adjust tests to handle Ubuntu 20.04 issues
