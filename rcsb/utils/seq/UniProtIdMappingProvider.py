@@ -11,11 +11,12 @@ import time
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.IoUtil import IoUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
+from rcsb.utils.io.SingletonClass import SingletonClass
 
 logger = logging.getLogger(__name__)
 
 
-class UniProtIdMappingProvider(object):
+class UniProtIdMappingProvider(SingletonClass):
     """Manage index of UniProt identifier mappings."""
 
     def __init__(self, **kwargs):
