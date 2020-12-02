@@ -20,13 +20,16 @@ class UniProtIdMappingProvider(SingletonClass):
     """Manage index of UniProt identifier mappings."""
 
     def __init__(self, **kwargs):
-        urlTarget = kwargs.get("urlTarget", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz")
+        # urlTarget = kwargs.get("urlTarget", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz")
+        urlTarget = kwargs.get("urlTarget", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz")
+        urlTargetLegacy = kwargs.get("urlTargetLegacy", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.2015_03.gz")
         cachePath = kwargs.get("cachePath", ".")
         dirPath = os.path.join(cachePath, "uniprot-id-mapping")
         useCache = kwargs.get("useCache", True)
         mapNameL = kwargs.get("mapNames", ["NCBI-taxon"])
         fmt = kwargs.get("fmt", "pickle")
         maxLimit = kwargs.get("maxLimit", None)
+        useLegacy = kwargs.get("useLegacy", False)
         #
         self.__mapRecordD = {
             "UniProtKB-AC": 1,
@@ -55,15 +58,31 @@ class UniProtIdMappingProvider(SingletonClass):
         self.__mU = MarshalUtil(workPath=dirPath)
         self.__nameL, self.__mapD = self.__rebuildCache(urlTarget, mapNameL, dirPath, fmt=fmt, useCache=useCache, maxLimit=maxLimit)
         self.__cacheFieldD = {k: ii for ii, k in enumerate(self.__nameL)}
+        #
+        if useLegacy:
+            self.__nameLegacyL, self.__mapLegacyD = self.__rebuildCache(urlTargetLegacy, mapNameL, dirPath, fmt=fmt, useCache=useCache, maxLimit=maxLimit)
+            self.__cacheFieldLegacyD = {k: ii for ii, k in enumerate(self.__nameLegacyL)}
+        else:
+            self.__nameLegacyL = []
+            self.__mapLegacyD = {}
+            self.__cacheFieldLegacyD = {}
 
     def getMappedId(self, unpId, mapName="NCBI-taxon"):
         mId = None
         try:
-            #
             iRec = self.__cacheFieldD[mapName]
             mId = self.__mapD[unpId][iRec]
-        except Exception as e:
-            logger.exception("Failing %r with %s", self.__cacheFieldD, str(e))
+        except Exception:
+            pass
+        return mId
+
+    def getMappedIdLegacy(self, unpId, mapName="NCBI-taxon"):
+        mId = None
+        try:
+            iRec = self.__cacheFieldLegacyD[mapName]
+            mId = self.__mapLegacyD[unpId][iRec]
+        except Exception:
+            pass
         return mId
 
     def testCache(self):
@@ -115,8 +134,10 @@ class UniProtIdMappingProvider(SingletonClass):
         nL = mapNameL
         oD = {}
         try:
+            fileU = FileUtil()
             fExt = "pic" if fmt == "pickle" else "json"
-            mapFileName = "uniprot-id-map." + fExt
+            fN, _ = os.path.splitext(fileU.getFileName(targetUrl))
+            mapFileName = fN + "-map." + fExt
             idMapPath = os.path.join(outDirPath, mapFileName)
             mU = MarshalUtil()
             if useCache and mU.exists(idMapPath):
@@ -126,8 +147,6 @@ class UniProtIdMappingProvider(SingletonClass):
                 oD = tD["uniprotMapD"]
                 ok = True
             else:
-                fileU = FileUtil()
-                targetUrl = "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz"
                 idPath = os.path.join(outDirPath, fileU.getFileName(targetUrl))
                 if not fileU.exists(idPath):
                     logger.info("Fetch selected idmapping data from %r in %r", targetUrl, outDirPath)

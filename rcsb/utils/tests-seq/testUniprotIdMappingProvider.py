@@ -52,12 +52,16 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
     @unittest.skipIf(skipFull, "Very long test")
     def testUniProtIdMappingProviderCache(self):
         # umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, maxLimit=100)
-        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True)
+        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         #
         taxId = umP.getMappedId("Q6GZX0", mapName="NCBI-taxon")
         logger.info("TaxId %r", taxId)
         self.assertEqual(taxId, "654924")
+        #
+        taxId = umP.getMappedIdLegacy("Q6GZX0", mapName="NCBI-taxon")
+        logger.info("TaxId %r", taxId)
+        # self.assertEqual(taxId, "654924")
 
 
 def uniProtIdMappingProviderCacheSuite():
