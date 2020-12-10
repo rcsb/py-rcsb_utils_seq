@@ -4,11 +4,24 @@
 # Date:    30-Nov-2020
 #
 # Update:
-#
+#   10-Dec-2020 jdw add tests for tdd cache persistence
 #
 ##
 """
-Tests utilities to manage access to UniProtIdMappingProvider.
+Tests utilities to manage access to UniProtIdMappingProvider -
+
+These tests from scratch require a couple of hours to run.
+(HP 12 core Intel(R) Xeon(R) CPU E5-2680 v3 @ 2.50GHz)
+
+For taxonomy mapping alone -
+
+For cached data performance the "tdd" format data loads fastest (294s + 56 GB mem)
+                                "pickle" format data loads (324s + 69 GB mem)
+
+Building cached files (neglecting download of raw mapping files)
+
+   tdd     1937s + 56 GB mem
+   pickle  1380s + 69 GB mem
 
 """
 
@@ -34,7 +47,7 @@ logger = logging.getLogger()
 
 
 class UniProtIdMappingProviderTests(unittest.TestCase):
-    skipFull = True
+    skipFull = False
 
     def setUp(self):
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
@@ -50,9 +63,22 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
     @unittest.skipIf(skipFull, "Very long test")
-    def testUniProtIdMappingProviderCache(self):
-        # umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, maxLimit=100)
-        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True)
+    def testUniProtIdMappingProviderCachePic(self):
+        # umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, maxLimit=100, useLegacy=True)
+        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True, fmt="pickle")
+        logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
+        #
+        taxId = umP.getMappedId("Q6GZX0", mapName="NCBI-taxon")
+        logger.info("TaxId %r", taxId)
+        self.assertEqual(taxId, "654924")
+        #
+        taxId = umP.getMappedIdLegacy("Q6GZX0", mapName="NCBI-taxon")
+        logger.info("TaxId %r", taxId)
+        # self.assertEqual(taxId, "654924")
+
+    @unittest.skipIf(skipFull, "Very long test")
+    def testUniProtIdMappingProviderCacheTdd(self):
+        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True, fmt="tdd")
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         #
         taxId = umP.getMappedId("Q6GZX0", mapName="NCBI-taxon")
@@ -66,7 +92,8 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
 
 def uniProtIdMappingProviderCacheSuite():
     suiteSelect = unittest.TestSuite()
-    suiteSelect.addTest(UniProtIdMappingProviderTests("testUniProtIdMappingProviderCache"))
+    suiteSelect.addTest(UniProtIdMappingProviderTests("testUniProtIdMappingProviderCachePic"))
+    suiteSelect.addTest(UniProtIdMappingProviderTests("testUniProtIdMappingProviderCacheTdd"))
     return suiteSelect
 
 

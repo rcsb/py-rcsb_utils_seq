@@ -70,8 +70,11 @@ class UniProtIdMappingProvider(SingletonClass):
     def getMappedId(self, unpId, mapName="NCBI-taxon"):
         mId = None
         try:
-            iRec = self.__cacheFieldD[mapName]
-            mId = self.__mapD[unpId][iRec]
+            if len(self.__nameL) == 1 and self.__nameL[0] == mapName:
+                mId = self.__mapD[unpId]
+            else:
+                iRec = self.__cacheFieldD[mapName]
+                mId = self.__mapD[unpId][iRec]
         except Exception:
             pass
         return mId
@@ -79,8 +82,11 @@ class UniProtIdMappingProvider(SingletonClass):
     def getMappedIdLegacy(self, unpId, mapName="NCBI-taxon"):
         mId = None
         try:
-            iRec = self.__cacheFieldLegacyD[mapName]
-            mId = self.__mapLegacyD[unpId][iRec]
+            if len(self.__nameL) == 1 and self.__nameL[0] == mapName:
+                mId = self.__mapLegacyD[unpId]
+            else:
+                iRec = self.__cacheFieldLegacyD[mapName]
+                mId = self.__mapLegacyD[unpId][iRec]
         except Exception:
             pass
         return mId
@@ -136,16 +142,32 @@ class UniProtIdMappingProvider(SingletonClass):
         try:
             fileU = FileUtil()
             fExt = "pic" if fmt == "pickle" else "json"
+            fExt = "tdd" if fmt == "tdd" else fExt
             fN, _ = os.path.splitext(fileU.getFileName(targetUrl))
             mapFileName = fN + "-map." + fExt
             idMapPath = os.path.join(outDirPath, mapFileName)
             mU = MarshalUtil()
             if useCache and mU.exists(idMapPath):
                 logger.info("Using cached file %r", idMapPath)
-                tD = mU.doImport(idMapPath, fmt=fmt)
-                nL = set(tD["idNameList"])
-                oD = tD["uniprotMapD"]
-                ok = True
+                if fmt in ["pickle", "json"]:
+                    tD = mU.doImport(idMapPath, fmt=fmt)
+                    nL = list(set(tD["idNameList"]))
+                    oD = tD["uniprotMapD"]
+                    logger.info("keys %r", list(oD.keys())[:10])
+                    logger.info("nL %r", nL)
+                    ok = True
+                elif fmt == "tdd":
+                    ioU = IoUtil()
+                    it = ioU.deserializeCsvIter(idMapPath, delimiter="\t", rowFormat="list", encodingErrors="ignore")
+                    tL = next(it, [])
+                    nL = tL[1:]
+                    if len(nL) == 1:
+                        for row in it:
+                            oD[row[0]] = row[1]
+                    else:
+                        for row in it:
+                            oD[row[0]] = row[1:]
+                    ok = True
             else:
                 idPath = os.path.join(outDirPath, fileU.getFileName(targetUrl))
                 if not fileU.exists(idPath):
@@ -158,21 +180,50 @@ class UniProtIdMappingProvider(SingletonClass):
                     logger.info("Using cached mapping file %r", idPath)
                 # ---
                 ioU = IoUtil()
-                iCount = 0
-                for row in ioU.deserializeCsvIter(idPath, delimiter="\t", rowFormat="list", encodingErrors="ignore"):
-                    tL = []
-                    for mapName in mapNameL:
-                        mapRecord = self.__mapRecordD[mapName]
-                        tL.append(str(row[mapRecord - 1]).strip())
-                    if tL:
-                        oD[row[0]] = tL
-                        iCount += 1
-                        if iCount % 50000000 == 0:
-                            logger.info("Processing %d", iCount)
-                    if maxLimit and iCount > maxLimit:
-                        break
+                if fmt in ["pickle", "json"]:
+                    iCount = 0
+                    if len(mapNameL) == 1:
+                        for row in ioU.deserializeCsvIter(idPath, delimiter="\t", rowFormat="list", encodingErrors="ignore"):
+                            oD[row[0]] = str(row[self.__mapRecordD[mapNameL[0]] - 1])
+                            iCount += 1
+                            if maxLimit and iCount > maxLimit:
+                                break
+                    else:
+                        for row in ioU.deserializeCsvIter(idPath, delimiter="\t", rowFormat="list", encodingErrors="ignore"):
+                            for mapName in mapNameL:
+                                oD.setdefault(row[0], []).append(str(row[self.__mapRecordD[mapName] - 1]))
+                            iCount += 1
+                            if maxLimit and iCount > maxLimit:
+                                break
+                    ok = mU.doExport(idMapPath, {"idNameList": mapNameL, "uniprotMapD": oD}, fmt=fmt)
+                elif fmt == "tdd":
                     #
-                ok = mU.doExport(idMapPath, {"idNameList": mapNameL, "uniprotMapD": oD}, fmt=fmt)
+                    colNameL = []
+                    colNameL.append("UniProtId")
+                    colNameL.extend(mapNameL)
+                    oL = []
+                    oL.append("\t".join(colNameL))
+
+                    iCount = 0
+                    if len(mapNameL) == 1:
+                        for row in ioU.deserializeCsvIter(idPath, delimiter="\t", rowFormat="list", encodingErrors="ignore"):
+                            oL.append(row[0] + "\t" + row[self.__mapRecordD[mapNameL[0]] - 1])
+                            iCount += 1
+                            if maxLimit and iCount > maxLimit:
+                                break
+                    else:
+                        for row in ioU.deserializeCsvIter(idPath, delimiter="\t", rowFormat="list", encodingErrors="ignore"):
+                            tL = [row[0]]
+                            for mapName in mapNameL:
+                                tL.append(str(row[self.__mapRecordD[mapName] - 1]))
+                            oL.append("\t".join(tL))
+                            iCount += 1
+                            if maxLimit and iCount > maxLimit:
+                                break
+                        #
+                    ok = mU.doExport(idMapPath, oL, fmt="list")
+                    oL = []
+                    nL, oD = self.__rebuildCache(targetUrl, mapNameL, outDirPath, fmt=fmt, useCache=True, maxLimit=maxLimit)
             logger.info("Completed reload (%r) at %s (%.4f seconds)", ok, time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
         except Exception as e:
             logger.exception("Failing with %s", str(e))

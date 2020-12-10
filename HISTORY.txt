@@ -40,3 +40,4 @@
   30-Nov-2020    V0.47 add UniProtIdMappingProvider() and tests.
    1-Dec-2020    V0.48 make UniProtIdMappingProvider() a singleton.
    2-Dec-2020    V0.49 Add legacy id mapping data in UniProtIdMappingProvider()
+  10-Dec-2020    V0.50 Add for 'tdd' format in UniProtIdMappingProvider() and improve save and load performance

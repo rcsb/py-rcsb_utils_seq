@@ -1,0 +1,22 @@
+nohup: ignoring input
+testUniProtIdMappingProviderCache (__main__.UniProtIdMappingProviderTests) ... 2020-12-09 08:41:55,907 [INFO]-testUniprotIdMappingProvider.setUp: Starting __main__.UniProtIdMappingProviderTests.testUniProtIdMappingProviderCache at 2020 12 09 08:41:55
+2020-12-09 08:41:55,927 [INFO]-UniProtIdMappingProvider.__rebuildCache: Fetch selected idmapping data from 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz' in '/net/techusers/jwest/Testing/py-rcsb_utils_seq/rcsb/utils/tests-seq/test-output/uniprot-id-mapping'
+2020-12-09 09:43:34,898 [INFO]-UniProtIdMappingProvider.__rebuildCache: Processing 50000000
+2020-12-09 09:49:41,707 [INFO]-UniProtIdMappingProvider.__rebuildCache: Processing 100000000
+2020-12-09 09:55:24,949 [INFO]-UniProtIdMappingProvider.__rebuildCache: Processing 150000000
+2020-12-09 10:00:50,995 [INFO]-UniProtIdMappingProvider.__rebuildCache: Processing 200000000
+2020-12-09 10:06:11,777 [INFO]-UniProtIdMappingProvider.__rebuildCache: Completed reload (True) at 2020 12 09 10:06:11 (5055.8505 seconds)
+2020-12-09 10:06:11,796 [INFO]-UniProtIdMappingProvider.__rebuildCache: Fetch selected idmapping data from 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.2015_03.gz' in '/net/techusers/jwest/Testing/py-rcsb_utils_seq/rcsb/utils/tests-seq/test-output/uniprot-id-mapping'
+2020-12-09 10:29:18,778 [INFO]-UniProtIdMappingProvider.__rebuildCache: Processing 50000000
+2020-12-09 10:37:37,339 [INFO]-UniProtIdMappingProvider.__rebuildCache: Completed reload (True) at 2020 12 09 10:37:37 (1885.5615 seconds)
+2020-12-09 10:37:37,339 [INFO]-testUniprotIdMappingProvider.testUniProtIdMappingProviderCache: Completed __main__.UniProtIdMappingProviderTests.testUniProtIdMappingProviderCache at 2020 12 09 10:37:37 (6941.4325 seconds)
+2020-12-09 10:37:37,340 [INFO]-testUniprotIdMappingProvider.testUniProtIdMappingProviderCache: TaxId '654924'
+2020-12-09 10:37:37,340 [INFO]-testUniprotIdMappingProvider.testUniProtIdMappingProviderCache: TaxId '654924'
+2020-12-09 10:37:37,340 [INFO]-testUniprotIdMappingProvider.tearDown: Maximum resident memory size 95.6016 GB
+2020-12-09 10:37:37,341 [INFO]-testUniprotIdMappingProvider.tearDown: Completed __main__.UniProtIdMappingProviderTests.testUniProtIdMappingProviderCache at 2020 12 09 10:37:37 (6941.4335 seconds)
+ok
+
+----------------------------------------------------------------------
+Ran 1 test in 6941.434s
+
+OK
