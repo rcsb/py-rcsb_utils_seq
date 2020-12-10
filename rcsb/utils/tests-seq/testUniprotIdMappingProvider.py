@@ -47,7 +47,7 @@ logger = logging.getLogger()
 
 
 class UniProtIdMappingProviderTests(unittest.TestCase):
-    skipFull = False
+    skipFull = True
 
     def setUp(self):
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
