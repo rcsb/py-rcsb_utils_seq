@@ -37,6 +37,7 @@ import resource
 import time
 import unittest
 
+from rcsb.utils.config.ConfigUtil import ConfigUtil
 from rcsb.utils.seq.UniProtIdMappingProvider import UniProtIdMappingProvider
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -50,8 +51,12 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
     skipFull = True
 
     def setUp(self):
-        self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
         self.__cachePath = os.path.join(HERE, "test-output")
+        #
+        configPath = os.path.join(HERE, "test-data", "stash-config-example.yml")
+        self.__configName = "site_info_configuration"
+        self.__cfgOb = ConfigUtil(configPath=configPath, defaultSectionName=self.__configName)
+        #
         self.__startTime = time.time()
         logger.info("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
 
@@ -64,8 +69,8 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
 
     @unittest.skipIf(skipFull, "Very long test")
     def testUniProtIdMappingProviderCachePic(self):
-        # umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, maxLimit=100, useLegacy=True)
-        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True, fmt="pickle")
+        umP = UniProtIdMappingProvider(self.__cachePath)
+        umP.reload(useCache=True, useLegacy=False, fmt="pickel")
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         #
         taxId = umP.getMappedId("Q6GZX0", mapName="NCBI-taxon")
@@ -78,8 +83,9 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
 
     @unittest.skipIf(skipFull, "Very long test")
     def testUniProtIdMappingProviderCacheTdd(self):
-        umP = UniProtIdMappingProvider(cachePath=self.__cachePath, useCache=True, useLegacy=True, fmt="tdd")
-        logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
+        umP = UniProtIdMappingProvider(self.__cachePath)
+        umP.reload(useCache=True, useLegacy=False, fmt="tdd")
+        logger.info("Completed reload %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         #
         taxId = umP.getMappedId("Q6GZX0", mapName="NCBI-taxon")
         logger.info("TaxId %r", taxId)
@@ -88,6 +94,12 @@ class UniProtIdMappingProviderTests(unittest.TestCase):
         taxId = umP.getMappedIdLegacy("Q6GZX0", mapName="NCBI-taxon")
         logger.info("TaxId %r", taxId)
         # self.assertEqual(taxId, "654924")
+        #
+        ok = umP.backup(self.__cfgOb, self.__configName)
+        self.assertTrue(ok)
+        #
+        ok = umP.restore(self.__cfgOb, self.__configName)
+        self.assertTrue(ok)
 
 
 def uniProtIdMappingProviderCacheSuite():
