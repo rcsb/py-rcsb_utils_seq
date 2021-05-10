@@ -508,3 +508,35 @@ class UniProtUtils(object):
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return None, cD
+
+    def doLookup(self, itemList, itemKey="GENENAME"):
+        """"""
+        rL = []
+        try:
+            baseUrl = self.__urlPrimary
+            endPoint = "uploadlists"
+            # hL = [("Accept", "application/xml")]
+            hL = []
+            pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
+            ureq = UrlRequestUtil()
+            rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
+            return rspTxt.split("\n") if rspTxt else [], retCode
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return rL, None
+
+    def doGeneLookup(self, geneName, taxId):
+        """"""
+        rL = []
+        try:
+            baseUrl = self.__urlPrimary
+            endPoint = "uniprot"
+            # hL = [("Accept", "application/xml")]
+            hL = []
+            pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
+            ureq = UrlRequestUtil()
+            rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
+            return rspTxt.split("\n") if rspTxt else [], retCode
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return rL, None

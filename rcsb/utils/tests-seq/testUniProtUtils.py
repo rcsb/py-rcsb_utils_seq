@@ -359,6 +359,32 @@ class UniProtUtilsTests(unittest.TestCase):
         logger.info("Matched:  primary:  %d secondary: %d none %d", numPrimary, numSecondary, numNone)
         return numPrimary, numSecondary, numNone
 
+    def testLookup(self):
+        """Test lookup gene names"""
+        try:
+            uUtils = UniProtUtils(saveText=False)
+            geneList = ["BCOR"]
+            for gene in geneList:
+                idList, retCode = uUtils.doLookup([gene], itemKey="GENENAME")
+                logger.info("retCode %r rspList (%d) %r", retCode, len(idList), idList)
+                self.assertGreaterEqual(len(idList), 500)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
+
+    def testGeneLookup(self):
+        """Test lookup gene names for human"""
+        try:
+            uUtils = UniProtUtils(saveText=False)
+            geneList = ["BCOR", "BCORL1"]
+            for gene in geneList:
+                idList, retCode = uUtils.doGeneLookup(gene, 9606)
+                logger.info("retCode %r rspList (%d) %r", retCode, len(idList), idList)
+                self.assertGreaterEqual(len(idList), 5)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+            self.fail()
+
 
 def suiteFetchTests():
     suiteSelect = unittest.TestSuite()
