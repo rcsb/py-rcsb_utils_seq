@@ -45,3 +45,4 @@
   22-Mar-2020    V0.52 Add backup and restore methods in  UniProtIdMappingProvider()
   23-Mar-2020    V0.53 Add clearCache methods and preserve loaded state across multiple instances of UniProtIdMappingProvider()
   10-May-2021    V0.54 Add feature and gene lookup method in UniProtUtils()
+  10-May-2021    V0.55 Adjust return prototype for lookup functions

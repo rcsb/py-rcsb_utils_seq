@@ -520,7 +520,9 @@ class UniProtUtils(object):
             pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
             ureq = UrlRequestUtil()
             rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-            return rspTxt.split("\n") if rspTxt else [], retCode
+            tValL = rspTxt.split("\n") if rspTxt else []
+            idList = [tVal for tVal in tValL if tVal]
+            return idList, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
@@ -536,7 +538,9 @@ class UniProtUtils(object):
             pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
             ureq = UrlRequestUtil()
             rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-            return rspTxt.split("\n") if rspTxt else [], retCode
+            tValL = rspTxt.split("\n") if rspTxt else []
+            idList = [tVal for tVal in tValL if tVal]
+            return idList, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
