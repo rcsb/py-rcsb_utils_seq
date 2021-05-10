@@ -527,7 +527,7 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return rL, None
 
-    def doGeneLookup(self, geneName, taxId):
+    def doGeneLookup(self, geneName, taxId, reviewed=False):
         """"""
         rL = []
         try:
@@ -535,7 +535,10 @@ class UniProtUtils(object):
             endPoint = "uniprot"
             # hL = [("Accept", "application/xml")]
             hL = []
-            pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
+            if reviewed:
+                pD = {"query": 'gene:"%s" and taxonomy:%s and reviewed:yes' % (geneName, taxId), "format": "list"}
+            else:
+                pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
             ureq = UrlRequestUtil()
             rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
             tValL = rspTxt.split("\n") if rspTxt else []

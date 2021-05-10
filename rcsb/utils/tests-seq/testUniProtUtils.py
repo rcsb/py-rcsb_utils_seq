@@ -380,7 +380,7 @@ class UniProtUtilsTests(unittest.TestCase):
             for gene in geneList:
                 idList, retCode = uUtils.doGeneLookup(gene, 9606)
                 logger.info("retCode %r rspList (%d) %r", retCode, len(idList), idList)
-                self.assertGreaterEqual(len(idList), 5)
+                self.assertGreaterEqual(len(idList), 1)
         except Exception as e:
             logger.exception("Failing with %s", str(e))
             self.fail()
