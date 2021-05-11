@@ -502,7 +502,7 @@ class UniProtUtils(object):
         cD = {}
         try:
             rL = rspS.splitlines()
-            seqId, cD = faU.parseComment(rL[0], "uniprot")
+            seqId, cD = faU.parseComment(rL[0], "uniprot_regex")
             ok, cD["sequence"] = faU.cleanSequence("".join(rL[1:]))
             return ok, seqId, cD
         except Exception as e:

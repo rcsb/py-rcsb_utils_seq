@@ -47,3 +47,4 @@
   10-May-2021    V0.54 Add feature and gene lookup method in UniProtUtils()
   10-May-2021    V0.55 Adjust return prototype for lookup functions
   10-May-2021    V0.56 Add review option for doGeneLookup()
+  10-May-2021    V0.57 Adjustments to UniProt FASTA comment line parser
