@@ -44,7 +44,7 @@ class GlyGenProvider(object):
 
     def testCache(self, minGlycanCount=20000, minGlycoproteinCount=64000):
         #
-        logger.info("GlyGen glycan list (%d)", len(self.__glycanD))
+        logger.info("GlyGen glycan list (%d) glycoprotein list (%d)", len(self.__glycanD), len(self.__glycoproteinD))
         if self.__glycanD and len(self.__glycanD) > minGlycanCount and self.__glycoproteinD and len(self.__glycoproteinD) > minGlycoproteinCount:
             return True
         return False
@@ -69,7 +69,7 @@ class GlyGenProvider(object):
 
     def __reloadGlycans(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
-        logger.info("Using dirPath %r", dirPath)
+        logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
         myDataPath = os.path.join(dirPath, "glygen-glycan-list.json")
@@ -77,14 +77,14 @@ class GlyGenProvider(object):
             gD = self.__mU.doImport(myDataPath, fmt="json")
             logger.debug("GlyGen glycan data length %d", len(gD))
         else:
-            logger.info("Fetch GlyGen glycan data from primary data source %s", baseUrl)
+            logger.debug("Fetch GlyGen glycan data from primary data source %s", baseUrl)
             endPoint = os.path.join(baseUrl, "glycan_masterlist.csv")
             #
             logger.info("Fetch GlyGen glycan data from primary data source %s", endPoint)
             rawPath = os.path.join(dirPath, "glycan_masterlist.csv")
             fU = FileUtil()
             ok = fU.get(endPoint, rawPath)
-            logger.info("Fetch GlyGen glycan data status %r", ok)
+            logger.debug("Fetch GlyGen glycan data status %r", ok)
             if not ok:
                 endPoint = os.path.join(fallbackUrl, "glycan_masterlist.csv")
                 ok = fU.get(endPoint, rawPath)
@@ -102,8 +102,8 @@ class GlyGenProvider(object):
         row = None
         try:
             rowL = self.__mU.doImport(filePath, fmt="csv", rowFormat="list")
-            logger.info("Glycan list length (%d)", len(rowL))
-            logger.info("Row 0 %r", rowL[0])
+            logger.debug("Glycan list length (%d)", len(rowL))
+            logger.debug("Row 0 %r", rowL[0])
             for row in rowL[1:]:
                 gD[row[0]] = row[1]
         except Exception as e:
@@ -112,7 +112,7 @@ class GlyGenProvider(object):
 
     def __reloadGlycoproteins(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
-        logger.info("Using dirPath %r", dirPath)
+        logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
         myDataPath = os.path.join(dirPath, "glygen-glycoprotein-list.json")
@@ -132,11 +132,11 @@ class GlyGenProvider(object):
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", baseUrl)
                 endPoint = os.path.join(baseUrl, fn)
                 #
-                logger.info("Fetch GlyGen glycoprotein data from primary data source %s", endPoint)
+                logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", endPoint)
                 rawPath = os.path.join(dirPath, fn)
                 fU = FileUtil()
                 ok = fU.get(endPoint, rawPath)
-                logger.info("Fetch GlyGen glycoprotein data status %r", ok)
+                logger.debug("Fetch GlyGen glycoprotein data status %r", ok)
                 if not ok:
                     endPoint = os.path.join(fallbackUrl, fn)
                     ok = fU.get(endPoint, rawPath)
