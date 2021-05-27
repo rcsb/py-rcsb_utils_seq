@@ -4,7 +4,7 @@
 # Date:    18-Feb-2020
 #
 # Update:
-#
+#  26-May-2021 jdw add test for Pfam mapping methods
 #
 ##
 """
@@ -44,19 +44,29 @@ class PfamProviderTests(unittest.TestCase):
 
     def testPfamCache(self):
         pP = PfamProvider(cachePath=self.__cachePath, useCache=False)
+        ok = pP.testCache()
+        self.assertTrue(ok)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         # PF18871			HEPN_Toprim_N	HEPN/Toprim N-terminal domain 1
         descr = pP.getDescription("PF18871")
         ok = descr.startswith("HEPN/Toprim N-terminal domain 1")
         self.assertTrue(ok)
+        mL = pP.getMapping("1kip")
+        logger.debug("mL (%d)", len(mL))
+        self.assertGreaterEqual(len(mL), 2)
 
     def testPfamCacheFallBack(self):
-        pP = PfamProvider(urlTargetPfam="https://rcsb.org/t.txt", cachePath=self.__cachePath, useCache=False)
+        pP = PfamProvider(urlTargetPfam="https://rcsb.org/t.txt", urlTargetMapPfam="https://rcsb.org/t.txt", cachePath=self.__cachePath, useCache=False)
+        ok = pP.testCache()
+        self.assertTrue(ok)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         # PF18871			HEPN_Toprim_N	HEPN/Toprim N-terminal domain 1
         descr = pP.getDescription("PF18871")
         ok = descr.startswith("HEPN/Toprim N-terminal domain 1")
         self.assertTrue(ok)
+        mL = pP.getMapping("1kip")
+        logger.debug("mL (%d)", len(mL))
+        self.assertGreaterEqual(len(mL), 2)
 
 
 def pfamCacheSuite():

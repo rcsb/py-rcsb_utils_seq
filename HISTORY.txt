@@ -48,3 +48,4 @@
   10-May-2021    V0.55 Adjust return prototype for lookup functions
   10-May-2021    V0.56 Add review option for doGeneLookup()
   10-May-2021    V0.57 Adjustments to UniProt FASTA comment line parser
+  26-May-2021    V0.58 Add Pfam mapping methods and GlyGenProvider() and associated tests
