@@ -22,6 +22,7 @@ class PfamProvider(object):
     def __init__(self, **kwargs):
         urlTargetPfam = kwargs.get("urlTargetPfam", "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.clans.tsv.gz")
         urlTargetPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/Pfam-A.clans.tsv.gz"
+        self.__version = "34.0"
         cachePath = kwargs.get("cachePath", ".")
         dirPath = os.path.join(cachePath, "pfam")
         useCache = kwargs.get("useCache", True)
@@ -32,6 +33,9 @@ class PfamProvider(object):
         urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/database_files/pdb_pfamA_reg.txt.gz")
         urlTargetMapPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/pdb_pfamA_reg.txt.gz"
         self.__pfamMapD = self.__rebuildMappingCache(urlTargetMapPfam, urlTargetMapPfamFB, dirPath, useCache)
+
+    def getVersion(self):
+        return self.__version
 
     def getDescription(self, pfamId):
         """Return the description for the input Pfam identifier

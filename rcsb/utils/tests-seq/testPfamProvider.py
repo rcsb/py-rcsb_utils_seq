@@ -54,6 +54,8 @@ class PfamProviderTests(unittest.TestCase):
         mL = pP.getMapping("1kip")
         logger.debug("mL (%d)", len(mL))
         self.assertGreaterEqual(len(mL), 2)
+        vers = pP.getVersion()
+        self.assertEqual(vers, "34.0")
 
     def testPfamCacheFallBack(self):
         pP = PfamProvider(urlTargetPfam="https://rcsb.org/t.txt", urlTargetMapPfam="https://rcsb.org/t.txt", cachePath=self.__cachePath, useCache=False)
