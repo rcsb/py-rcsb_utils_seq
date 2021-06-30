@@ -2,7 +2,7 @@
   11-Dec-2018  - V0.10 Created module supporting PDB - UniProt mapping using SIFTS
   19-Mar-2019    V0.11 Incorporate UniProt feature extraction tools.
   22-Apr-2019    V0.12 Improve cache management, broaden test coverage
-  24-Jun-2019    V0.13 Update developmemt workflow
+  24-Jun-2019    V0.13 Update development workflow
   14-Jul-2019    V0.14 Fix py27 minidom issue with 'in' operation.
    9-Sep-2019    V0.15 Add SiftsUtils() -> SiftsSummaryProvider()
   10-Sep-2019    V0.16 Convert case on PDB accession codes
@@ -52,3 +52,4 @@
   27-May-2021    V0.59 Tweaking diagnostic output in GlyGenProvider()
   28-May-2021    V0.60 Add read-only version of GlycanProvider() and associated tests
   30-May-2021    V0.61 Add getVersion() method in PfamProvider().
+  30-Jun-2021    V0.62 Make GlycanProvider() a subclass of StashableBase(), update __docformat__

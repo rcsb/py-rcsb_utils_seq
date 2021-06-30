@@ -12,7 +12,7 @@ Tests for accessors for managing Glycan extracted annotations. (read-only versio
 
 """
 
-__docformat__ = "restructuredtext en"
+__docformat__ = "google en"
 __author__ = "John Westbrook"
 __email__ = "jwest@rcsb.rutgers.edu"
 __license__ = "Apache 2.0"
@@ -46,18 +46,12 @@ class GlycanProviderTests(unittest.TestCase):
         minCount = 12
         configName = "site_info_configuration"
         cfgOb = ConfigUtil(configPath=self.__configPath, defaultSectionName=configName, mockTopPath=self.__mockTopPath)
-        userName = cfgOb.get("_STASH_AUTH_USERNAME", sectionName=configName)
-        password = cfgOb.get("_STASH_AUTH_PASSWORD", sectionName=configName)
-        basePath = cfgOb.get("_STASH_SERVER_BASE_PATH", sectionName=configName)
-        url = cfgOb.get("STASH_SERVER_URL", sectionName=configName)
-        urlFallBack = cfgOb.get("STASH_SERVER_FALLBACK_URL", sectionName=configName)
-        logger.info("url %r", url)
-        logger.info("basepath %r", basePath)
+
         gP = GlycanProvider(cachePath=self.__cachePath, useCache=False)
         ok = gP.testCache(minCount=0)
         self.assertTrue(ok)
         #
-        ok = gP.fromStash(url, basePath, userName=userName, password=password)
+        ok = gP.restore(cfgOb, configName)
         self.assertTrue(ok)
         #
         ok = gP.reload()
@@ -69,7 +63,7 @@ class GlycanProviderTests(unittest.TestCase):
         logger.info("riD (%d)", len(riD))
         self.assertTrue(ok)
         #
-        ok = gP.fromStash(urlFallBack, basePath, userName=userName, password=password)
+        ok = gP.restore(cfgOb, configName)
         self.assertTrue(ok)
         #
         ok = gP.reload()
@@ -82,19 +76,12 @@ class GlycanProviderTests(unittest.TestCase):
         minCount = 12
         configName = "site_info_remote_configuration"
         cfgOb = ConfigUtil(configPath=self.__configPath, defaultSectionName=configName, mockTopPath=self.__mockTopPath)
-        userName = cfgOb.get("_STASH_AUTH_USERNAME", sectionName=configName)
-        password = cfgOb.get("_STASH_AUTH_PASSWORD", sectionName=configName)
-        basePath = cfgOb.get("_STASH_SERVER_BASE_PATH", sectionName=configName)
-        url = cfgOb.get("STASH_SERVER_URL", sectionName=configName)
-        urlFallBack = cfgOb.get("STASH_SERVER_FALLBACK_URL", sectionName=configName)
-        logger.info("url %r", url)
-        logger.info("basepath %r", basePath)
         #
         gP = GlycanProvider(cachePath=self.__cachePath, useCache=False)
         ok = gP.testCache(minCount=0)
         self.assertTrue(ok)
         #
-        ok = gP.fromStash(url, basePath, userName=userName, password=password)
+        ok = gP.restore(cfgOb, configName)
         self.assertTrue(ok)
         #
         ok = gP.reload()
@@ -106,7 +93,7 @@ class GlycanProviderTests(unittest.TestCase):
         logger.info("riD (%d)", len(riD))
         self.assertTrue(ok)
         #
-        ok = gP.fromStash(urlFallBack, basePath, userName=userName, password=password)
+        ok = gP.restore(cfgOb, configName)
         self.assertTrue(ok)
         #
         ok = gP.reload()

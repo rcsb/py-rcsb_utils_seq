@@ -10,7 +10,7 @@
 Utilities to manage access to SIFTS summary mapping data.
 
 """
-__docformat__ = "restructuredtext en"
+__docformat__ = "google en"
 __author__ = "John Westbrook"
 __email__ = "jwest@rcsb.rutgers.edu"
 __license__ = "Apache 2.0"
@@ -26,8 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class SiftsSummaryProvider(object):
-    """ Utilities to manage access to SIFTS summary mapping data.
-    """
+    """Utilities to manage access to SIFTS summary mapping data."""
 
     def __init__(self, **kwargs):
         self.__ssD = self.__rebuildCache(**kwargs)
@@ -94,7 +93,7 @@ class SiftsSummaryProvider(object):
         return saoL
 
     def getLongestAlignments(self, entryId, authAsymIdL):
-        """ Return the longest unique SIFTS alignments for the input entity instances.
+        """Return the longest unique SIFTS alignments for the input entity instances.
 
         Args:
             entryId (str): entry identifier
@@ -182,8 +181,7 @@ class SiftsSummaryProvider(object):
         return ssD
 
     def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="PROD"):
-        """
-        """
+        """ """
 
         uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
@@ -251,7 +249,7 @@ class SiftsSummaryProvider(object):
         return uSeqD
 
     def __getGeneOntologyChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level GO mapping data.
+        """Integrated SIFTS summary instance-level GO mapping data.
 
         PDB,CHAIN,SP_PRIMARY,WITH_STRING,EVIDENCE,GO_ID
         101m,A,IPRO,InterPro:IPR000971,IEA,GO:0020037
@@ -278,7 +276,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getGoIdChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level GO mapping data.
+        """Integrated SIFTS summary instance-level GO mapping data.
 
         PDB,CHAIN,SP_PRIMARY,WITH_STRING,EVIDENCE,GO_ID
         101m,A,IPRO,InterPro:IPR000971,IEA,GO:0020037
@@ -312,9 +310,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getInterProChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level InterPro mapping data.
-
-        """
+        """Integrated SIFTS summary instance-level InterPro mapping data."""
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
@@ -332,9 +328,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getPfamChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level PFAM mapping data.
-
-        """
+        """Integrated SIFTS summary instance-level PFAM mapping data."""
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
@@ -352,9 +346,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getEnzymeChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level EC mapping data.
-
-        """
+        """Integrated SIFTS summary instance-level EC mapping data."""
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
@@ -369,9 +361,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getCathChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level CATH mapping data.
-
-        """
+        """Integrated SIFTS summary instance-level CATH mapping data."""
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
@@ -386,9 +376,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getScopChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level SCOP mapping data.
-
-        """
+        """Integrated SIFTS summary instance-level SCOP mapping data."""
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
         rowDL = self.__readSiftsSummaryFile(fp)
         logger.info("Length of SIFTS summary file %s %d", csvFileName, len(rowDL))
@@ -405,7 +393,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getTaxonomnyChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """ Integrated SIFTS summary instance-level taxonomy mapping data.
+        """Integrated SIFTS summary instance-level taxonomy mapping data.
 
         # Taxonomy
         [('PDB', '101m'), ('CHAIN', 'A'), ('TAX_ID', '9755'), ('SCIENTIFIC_NAME', 'PHYCD')]
@@ -426,8 +414,7 @@ class SiftsSummaryProvider(object):
         return tD
 
     def __getUniprotChainMapping(self, siftsSummaryDirPath, csvFileName):
-        """  Integrated SIFTS summary instance-level uniprot mapping data.
-        """
+        """Integrated SIFTS summary instance-level uniprot mapping data."""
         #
         #
         fp = os.path.join(siftsSummaryDirPath, csvFileName)
@@ -459,8 +446,7 @@ class SiftsSummaryProvider(object):
         return uD
 
     def __readSiftsSummaryFile(self, filePath, rowFormat="dict"):
-        """ Read input SIFTS summary file and return a list of dictionaries.
-        """
+        """Read input SIFTS summary file and return a list of dictionaries."""
         try:
             mU = MarshalUtil()
             cL = mU.doImport(filePath, fmt="csv", rowFormat=rowFormat)

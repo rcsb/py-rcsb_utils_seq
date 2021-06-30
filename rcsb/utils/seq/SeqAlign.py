@@ -10,7 +10,7 @@
 Utilities for processing sequence alignments.
 
 """
-__docformat__ = "restructuredtext en"
+__docformat__ = "google en"
 __author__ = "John Westbrook"
 __email__ = "jwest@rcsb.rutgers.edu"
 __license__ = "Apache 2.0"
@@ -66,9 +66,7 @@ def splitSeqAlignObjList(seqAlignObjL):
 
 
 class SeqAlign(object):
-    """
-
-    """
+    """ """
 
     def __init__(self, alignType, **kwargs):
         if alignType == "PDB":
