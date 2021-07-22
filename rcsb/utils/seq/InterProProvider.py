@@ -15,9 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class InterProProvider(object):
-    """ Manage mappings of InterPro identifiers to description and parent/child relationships
-
-    """
+    """Manage mappings of InterPro identifiers to description and parent/child relationships"""
 
     def __init__(self, **kwargs):
         urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current/entry.list")
@@ -29,9 +27,7 @@ class InterProProvider(object):
         useCache = kwargs.get("useCache", True)
         #
         self.__mU = MarshalUtil(workPath=dirPath)
-        self.__interProD, self.__interProParentD = self.__rebuildCache(
-            urlTargetInterPro, urlTargetInterProFB, urlTargetInterProParent, urlTargetInterProParentFB, dirPath, useCache
-        )
+        self.__interProD, self.__interProParentD = self.__rebuildCache(urlTargetInterPro, urlTargetInterProFB, urlTargetInterProParent, urlTargetInterProParentFB, dirPath, useCache)
 
     def getDescription(self, interProId):
         ret = None

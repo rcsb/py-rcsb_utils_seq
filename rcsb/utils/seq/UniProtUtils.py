@@ -375,7 +375,7 @@ class UniProtUtils(object):
         return ok, ret
 
     def __doRequestPrimary(self, idList):
-        """"""
+        """ """
         baseUrl = self.__urlPrimary
         endPoint = "uploadlists"
         hL = [("Accept", "application/xml")]
@@ -446,7 +446,7 @@ class UniProtUtils(object):
         return ok, sD
 
     def __doSequenceRequestPrimary(self, unpIdList):
-        """"""
+        """ """
         sD = {}
         fmt = "fasta"
         baseUrl = self.__urlPrimary
@@ -469,7 +469,7 @@ class UniProtUtils(object):
         return ok, sD
 
     def __doSequenceRequestSecondary(self, unpIdList):
-        """"""
+        """ """
         sD = {}
         baseUrl = self.__urlSecondary
         hD = {"Accept": "text/x-fasta"}
@@ -510,7 +510,7 @@ class UniProtUtils(object):
         return None, cD
 
     def doLookup(self, itemList, itemKey="GENENAME"):
-        """"""
+        """ """
         rL = []
         try:
             baseUrl = self.__urlPrimary
@@ -528,7 +528,7 @@ class UniProtUtils(object):
         return rL, None
 
     def doGeneLookup(self, geneName, taxId, reviewed=False):
-        """"""
+        """ """
         rL = []
         try:
             baseUrl = self.__urlPrimary

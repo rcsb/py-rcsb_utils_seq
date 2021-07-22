@@ -61,8 +61,7 @@ class SeqAlignTests(unittest.TestCase):
         ]
 
     def testSeqAlignExDb(self):
-        """ Test grouping functions for EXDB alignments,
-        """
+        """Test grouping functions for EXDB alignments,"""
         try:
             seqAlignObjL = []
             for alObj in self.__exdbL:
@@ -85,8 +84,7 @@ class SeqAlignTests(unittest.TestCase):
             self.fail()
 
     def testSeqAlignSifts(self):
-        """ Test grouping functions for SIFTS alignments,
-        """
+        """Test grouping functions for SIFTS alignments,"""
         try:
             seqAlignObjL = []
             for alObj in self.__siftsL:
