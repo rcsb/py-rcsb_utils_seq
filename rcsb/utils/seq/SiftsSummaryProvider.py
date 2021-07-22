@@ -33,7 +33,7 @@ class SiftsSummaryProvider(StashableBase):
         dirName = "sifts-summary"
         if "cachePath" in kwargs:
             cachePath = os.path.abspath(kwargs.get("cachePath", None))
-            self.__cacheDirPath = os.path.join(self.__cachePath, dirName)
+            self.__cacheDirPath = os.path.join(cachePath, dirName)
         else:
             self.__cacheDirPath = kwargs.get("cacheDirPath", ".")
             cachePath, dirName = os.path.split(os.path.abspath(self.__cacheDirPath))
