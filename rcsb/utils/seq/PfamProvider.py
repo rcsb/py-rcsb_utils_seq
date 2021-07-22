@@ -12,19 +12,22 @@ import sys
 
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
+from rcsb.utils.io.StashableBase import StashableBase
 
 logger = logging.getLogger(__name__)
 
 
-class PfamProvider(object):
+class PfamProvider(StashableBase):
     """Manage an index of Pfam identifier to description mappings."""
 
     def __init__(self, **kwargs):
         urlTargetPfam = kwargs.get("urlTargetPfam", "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.clans.tsv.gz")
         urlTargetPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/Pfam-A.clans.tsv.gz"
         self.__version = "34.0"
+        dirName = "pfam"
         cachePath = kwargs.get("cachePath", ".")
-        dirPath = os.path.join(cachePath, "pfam")
+        dirPath = os.path.join(cachePath, dirName)
+        super(PfamProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
         self.__mU = MarshalUtil(workPath=dirPath)
@@ -72,11 +75,12 @@ class PfamProvider(object):
 
     def testCache(self):
         # Check length ...
-        logger.info("Length Pfam %d", len(self.__pfamD))
+        logger.info("Length PfamD %d", len(self.__pfamD))
         return (len(self.__pfamD) > 19000) and (len(self.__pfamMapD) > 150000)
 
     #
     def __rebuildCache(self, urlTargetPfam, urlTargetPfamFB, dirPath, useCache):
+        pfamD = {}
         fmt = "json"
         ext = fmt if fmt == "json" else "pic"
         pfamDataPath = os.path.join(dirPath, "pfam-data.%s" % ext)
@@ -87,7 +91,7 @@ class PfamProvider(object):
         if useCache and self.__mU.exists(pfamDataPath):
             pfamD = self.__mU.doImport(pfamDataPath, fmt=fmt)
             logger.debug("Pfam data length %d", len(pfamD))
-        else:
+        elif not useCache:
             # ------
             fU = FileUtil()
             logger.info("Fetch data from source %s in %s", urlTargetPfam, dirPath)

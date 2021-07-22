@@ -20,15 +20,25 @@ import os
 import sys
 
 from rcsb.utils.io.MarshalUtil import MarshalUtil
+from rcsb.utils.io.StashableBase import StashableBase
 from rcsb.utils.seq.SeqAlign import SeqAlign, splitSeqAlignObjList
 
 logger = logging.getLogger(__name__)
 
 
-class SiftsSummaryProvider(object):
+class SiftsSummaryProvider(StashableBase):
     """Utilities to manage access to SIFTS summary mapping data."""
 
     def __init__(self, **kwargs):
+        dirName = "sifts-summary"
+        if "cachePath" in kwargs:
+            cachePath = os.path.abspath(kwargs.get("cachePath", None))
+            self.__cacheDirPath = os.path.join(self.__cachePath, dirName)
+        else:
+            self.__cacheDirPath = kwargs.get("cacheDirPath", ".")
+            cachePath, dirName = os.path.split(os.path.abspath(self.__cacheDirPath))
+        super(SiftsSummaryProvider, self).__init__(cachePath, [dirName])
+
         self.__ssD = self.__rebuildCache(**kwargs)
 
     def getEntryCount(self):
@@ -157,7 +167,8 @@ class SiftsSummaryProvider(object):
         entrySaveLimit = kwargs.get("entrySaveLimit", None)
         abbreviated = str(kwargs.get("abbreviated", "TEST")).upper()
         #
-        cacheDirPath = kwargs.get("cacheDirPath", None)
+        # cacheDirPath = kwargs.get("cacheDirPath", None)
+        cacheDirPath = self.__cacheDirPath
         pyVersion = sys.version_info[0]
         ext = "pic" if cacheKwargs["fmt"] == "pickle" else "json"
         saveFilePath = os.path.join(cacheDirPath, "sifts-summary-py%s.%s" % (str(pyVersion), ext))

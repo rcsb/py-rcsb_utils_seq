@@ -15,11 +15,12 @@ import os.path
 
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
+from rcsb.utils.io.StashableBase import StashableBase
 
 logger = logging.getLogger(__name__)
 
 
-class GlyGenProvider(object):
+class GlyGenProvider(StashableBase):
     """Fetch glycans and glycoproteins available in the GlyGen.org resource.
 
     GlyGen glycan link template -
@@ -31,8 +32,10 @@ class GlyGenProvider(object):
 
     def __init__(self, **kwargs):
         #
-        self.__cachePath = kwargs.get("cachePath", ".")
-        self.__dirPath = os.path.join(self.__cachePath, "glygen")
+        dirName = "glygen"
+        cachePath = kwargs.get("cachePath", ".")
+        self.__dirPath = os.path.join(cachePath, dirName)
+        super(GlyGenProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
         baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2releases/v-1.8.25/reviewed/")
@@ -76,7 +79,7 @@ class GlyGenProvider(object):
         if useCache and self.__mU.exists(myDataPath):
             gD = self.__mU.doImport(myDataPath, fmt="json")
             logger.debug("GlyGen glycan data length %d", len(gD))
-        else:
+        elif not useCache:
             logger.debug("Fetch GlyGen glycan data from primary data source %s", baseUrl)
             endPoint = os.path.join(baseUrl, "glycan_masterlist.csv")
             #

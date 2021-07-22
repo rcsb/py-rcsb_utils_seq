@@ -36,7 +36,9 @@ class SiftsSummaryProviderTests(unittest.TestCase):
     def setUp(self):
         self.__dirPath = os.path.join(os.path.dirname(TOPDIR), "rcsb", "mock-data")
         self.__srcDirPath = os.path.join(self.__dirPath, "sifts-summary")
-        self.__cacheDirPath = os.path.join(HERE, "test-output", "sifts-summary")
+        #
+        # self.__cacheDirPath = os.path.join(HERE, "test-output", "sifts-summary")
+        self.__cachePath = os.path.join(HERE, "test-output", "CACHE")
         #
         self.__startTime = time.time()
         logger.info("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
@@ -47,14 +49,14 @@ class SiftsSummaryProviderTests(unittest.TestCase):
 
     def testWriteReadSiftsSummaryCache(self):
         abbreviated = "TEST"
-        su = SiftsSummaryProvider(srcDirPath=self.__srcDirPath, cacheDirPath=self.__cacheDirPath, useCache=False, abbreviated=abbreviated)
+        su = SiftsSummaryProvider(srcDirPath=self.__srcDirPath, cachePath=self.__cachePath, useCache=False, abbreviated=abbreviated)
         eCountW = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountW)
         self.assertGreaterEqual(eCountW, 140000)
         aL = su.getIdentifiers("1CBS", "A", "UNPID")
         self.assertEqual(len(aL), 1)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
-        su = SiftsSummaryProvider(cacheDirPath=self.__cacheDirPath, useCache=True)
+        su = SiftsSummaryProvider(cachePath=self.__cachePath, useCache=True)
         eCountR = su.getEntryCount()
         logger.info("SIFTS entry count %d", eCountR)
         self.assertEqual(eCountW, eCountR)
@@ -86,7 +88,7 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         entrySaveLimit = 50
         su = SiftsSummaryProvider(
             srcDirPath=self.__srcDirPath,
-            cacheDirPath=self.__cacheDirPath,
+            cachePath=self.__cachePath,
             cacheKwargs={"fmt": "json", "indent": 3},
             useCache=False,
             entrySaveLimit=entrySaveLimit,
