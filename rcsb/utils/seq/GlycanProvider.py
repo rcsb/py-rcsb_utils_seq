@@ -28,7 +28,7 @@ class GlycanProvider(StashableBase):
                              accession-wurcs-mapping.json
                     stash/glycan.tar.gz
 
-        This provider supports the delivery of pre-generated data from
+        Note: This provider supports the delivery of pre-generated data from
                    rcsb.exdb.branched/GlycanProvider
     """
 
@@ -45,10 +45,11 @@ class GlycanProvider(StashableBase):
         self.__glyD = self.__reload(fmt="json", useCache=useCache)
         #
 
-    def testCache(self, minCount=0):
+    def testCache(self, minCount=1):
         if minCount == 0:
             return True
         if self.__glyD and minCount and ("identifiers" in self.__glyD) and len(self.__glyD["identifiers"]) >= minCount:
+            logger.info("Glycan identifiers (%d)", len(self.__glyD["identifiers"]))
             return True
         return False
 
