@@ -21,6 +21,7 @@ import logging
 import os
 import unittest
 
+from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.seq.GlycanProvider import GlycanProvider
 from rcsb.utils.config.ConfigUtil import ConfigUtil
 
@@ -43,10 +44,19 @@ class GlycanProviderTests(unittest.TestCase):
         pass
 
     def testGlycanMapping(self):
+
         minCount = 12
         configName = "site_info_configuration"
         cfgOb = ConfigUtil(configPath=self.__configPath, defaultSectionName=configName, mockTopPath=self.__mockTopPath)
-
+        #
+        # mock the stashed data for this provider.
+        basePath = cfgOb.get("_STASH_SERVER_BASE_PATH", sectionName=configName)
+        fU = FileUtil()
+        fn = "glycan.tar.gz"
+        bundlePath = os.path.join(self.__dataPath, fn)
+        stashBundlePath = os.path.join(self.__cachePath, basePath, fn)
+        fU.put(bundlePath, stashBundlePath)
+        #
         gP = GlycanProvider(cachePath=self.__cachePath, useCache=False)
         ok = gP.testCache(minCount=0)
         self.assertTrue(ok)
