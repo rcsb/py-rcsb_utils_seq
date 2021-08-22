@@ -337,7 +337,7 @@ class UniProtUtils(object):
 
     #
     def writeUnpXml(self, filePath):
-        with open(filePath, "w") as ofh:
+        with open(filePath, "w", encoding="utf-8") as ofh:
             for data in self.__dataList:
                 ofh.write(data)
 

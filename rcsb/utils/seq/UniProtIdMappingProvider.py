@@ -233,7 +233,7 @@ class UniProtIdMappingProvider(SingletonClass):
                     colNameL = []
                     colNameL.append("UniProtId")
                     colNameL.extend(mapNameL)
-                    with open(idMapPath, "w") as ofh:
+                    with open(idMapPath, "w", encoding="utf-8") as ofh:
                         ofh.write("%s\n" % "\t".join(colNameL))
                         if len(mapNameL) == 1:
                             idx = self.__mapRecordD[mapNameL[0]] - 1
