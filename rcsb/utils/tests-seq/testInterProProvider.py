@@ -67,6 +67,9 @@ class InterProProviderTests(unittest.TestCase):
         self.assertGreaterEqual(len(tL), 30000)
 
     def testInterProCacheFallBack(self):
+        """Test case for utilizing fallback data when provider fails to retreive from given urlTarget.
+        (You should expect to see multiple errors here, prior to resorting to fall back.)
+        """
         ipP = InterProProvider(urlTargetInterPro="https://rcsb.org/t.txt", cachePath=self.__cachePath, useCache=False)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         # IPR041653	Repeat	Importin repeat 4
