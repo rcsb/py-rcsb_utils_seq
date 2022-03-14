@@ -2,6 +2,10 @@
 # File:    InterProProvider.py
 # Date:    18-Feb-2020
 #
+# Updates:
+#  14-Mar-2022 dwp Adjust parsing logic in getInterProParents to prevent overwriting of parent Ids for children that are redundantly listed
+#                  for each hierarchical level in the ParentChildTreeFile.txt file
+#
 ##
 
 import logging
@@ -78,7 +82,7 @@ class InterProProvider(object):
 
             logger.info("Caching %d in %s status %r", len(interProD), interProDataPath, ok)
             # ------
-            logger.info("Fetch data from source %s in %s", urlTargetInterPro, dirPath)
+            logger.info("Fetch data from source %s in %s", urlTargetInterProParent, dirPath)
             fp = os.path.join(dirPath, fU.getFileName(urlTargetInterProParent))
             ok = fU.get(urlTargetInterProParent, fp)
             if not ok:
@@ -161,7 +165,12 @@ class InterProProvider(object):
             # stack[:] = stack[: len(row) - 1] + [row[-1]]
             stack[:] = stack[: len(row) - 1] + [tS]
             for ii, idCode in enumerate(stack):
-                interProParentD[idCode] = None if ii == 0 else stack[ii - 1]
+                if idCode not in interProParentD:  # prevents overwriting the parent of idCode, in case idCode has already been iterated over in ParentChildTreeFile.txt
+                    interProParentD[idCode] = None if ii == 0 else stack[ii - 1]
+                else:
+                    # This will correct the parent of idCode from being None if it's later identified as having a parent at another point in ParentChildTreeFile.txt
+                    if interProParentD[idCode] is None and ii != 0:
+                        interProParentD[idCode] = stack[ii - 1]
             logger.debug("Lineage %r", "\t".join(stack))
         #
         return interProParentD
