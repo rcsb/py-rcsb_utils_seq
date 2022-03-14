@@ -54,3 +54,4 @@
   30-May-2021    V0.61 Add getVersion() method in PfamProvider().
   30-Jun-2021    V0.62 Make GlycanProvider() a subclass of StashableBase(), update __docformat__
   24-Jul-2021    V0.63 Make SiftsSummaryProvider() a subclass of StashableBase()
+  14-Mar-2022    V0.64 Adjust parsing logic of ParentChildTreeFile.txt in InterProProvider.__getInterProParents()
