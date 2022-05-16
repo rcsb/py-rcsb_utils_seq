@@ -3,7 +3,7 @@
 #  Date:  26-May-2021 jdw
 #
 #  Updates:
-#
+#  15-May-2022 dwp Update resource URL to new location 
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -38,7 +38,7 @@ class GlyGenProvider(StashableBase):
         super(GlyGenProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
-        baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2releases/v-1.8.25/reviewed/")
+        baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2data/releases/data/v-1.12.3/reviewed/")
         fallbackUrl = kwargs.get("glygenFallbackUrl", "https://raw.githubusercontent.com/rcsb/py-rcsb_exdb_assets/master/fall_back/glygen/")
         #
         self.__mU = MarshalUtil(workPath=self.__dirPath)
