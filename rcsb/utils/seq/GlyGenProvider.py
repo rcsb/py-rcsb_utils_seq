@@ -3,7 +3,7 @@
 #  Date:  26-May-2021 jdw
 #
 #  Updates:
-#  15-May-2022 dwp Update resource URL to new location 
+#  15-May-2022 dwp Update resource URL to new location
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
