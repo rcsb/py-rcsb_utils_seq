@@ -5,8 +5,16 @@
 # JDW - Adapted from SBKB sources and bits from RCSB codes -
 #
 # Updates:
-#
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
+# 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
+#
+# To Do:
+#   - Update URLs and endpoints to adapt to new UniProt API (https://www.uniprot.org/help/api)
+#     - See "Python example" API documentation for ID mapping in middle of page here: https://www.uniprot.org/help/id_mapping
+#     - Note that Queries for new REST API must use capital AND or OR boolean operators, not lowercase (https://www.uniprot.org/help/api_queries)
+#       E.g., compare the results of:
+#         YES: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+AND+taxonomy_id:9606&format=list
+#         vs.: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+and+taxonomy_id:9606&format=list
 ##
 
 import collections
@@ -34,11 +42,15 @@ class UniProtUtils(object):
 
     XML entry data is parsed into a feature dictionary.
 
+    Note that the UniProt ID API underwent a significant change in June 2022, which will require adapatation:
+        Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
+        New API docs: https://www.uniprot.org/help/id_mapping
+
     """
 
     def __init__(self, **kwargs):
         self.__saveText = kwargs.get("saveText", False)
-        self.__urlPrimary = kwargs.get("urlPrimary", "https://www.uniprot.org")
+        self.__urlPrimary = kwargs.get("urlPrimary", "https://legacy.uniprot.org")
         self.__urlSecondary = kwargs.get("urlSecondary", "https://www.ebi.ac.uk")
         self.__dataList = []
         self.__unpFeatureD = {
@@ -510,11 +522,16 @@ class UniProtUtils(object):
         return None, cD
 
     def doLookup(self, itemList, itemKey="GENENAME"):
-        """ """
+        """Do accession code lookup by mapping from itemKey to accession code for itemList.
+
+        Note that the UniProt ID mapping API underwent a significant change in June 2022, which will require adapatation:
+            Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
+            New API docs: https://www.uniprot.org/help/id_mapping
+        """
         rL = []
         try:
-            baseUrl = self.__urlPrimary
-            endPoint = "uploadlists"
+            baseUrl = self.__urlPrimary  # Will need to be changed to "https://rest.uniprot.org"
+            endPoint = "uploadlists"  # Will need to be changed to "idmapping/run"
             # hL = [("Accept", "application/xml")]
             hL = []
             pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
@@ -531,14 +548,15 @@ class UniProtUtils(object):
         """ """
         rL = []
         try:
-            baseUrl = self.__urlPrimary
-            endPoint = "uniprot"
+            # baseUrl = self.__urlPrimary  # Comment back in once all other methods are updated with new UniProt API
+            baseUrl = "https://rest.uniprot.org"  # new UniProt API baseUrl
+            endPoint = "uniprotkb/search"
             # hL = [("Accept", "application/xml")]
             hL = []
             if reviewed:
-                pD = {"query": 'gene:"%s" and taxonomy:%s and reviewed:yes' % (geneName, taxId), "format": "list"}
+                pD = {"query": 'gene:"%s" AND taxonomy_id:%s AND reviewed:yes' % (geneName, taxId), "format": "list"}
             else:
-                pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
+                pD = {"query": 'gene:"%s" AND taxonomy_id:%s' % (geneName, taxId), "format": "list"}
             ureq = UrlRequestUtil()
             rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
             tValL = rspTxt.split("\n") if rspTxt else []
