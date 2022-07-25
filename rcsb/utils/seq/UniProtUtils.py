@@ -41,11 +41,6 @@ class UniProtUtils(object):
     Manage fetch queries for UniProt entries and related annotations.
 
     XML entry data is parsed into a feature dictionary.
-
-    Note that the UniProt ID API underwent a significant change in June 2022, which will require adapatation:
-        Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
-        New API docs: https://www.uniprot.org/help/id_mapping
-
     """
 
     def __init__(self, **kwargs):
