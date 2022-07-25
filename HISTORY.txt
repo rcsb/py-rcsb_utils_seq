@@ -56,3 +56,4 @@
   24-Jul-2021    V0.63 Make SiftsSummaryProvider() a subclass of StashableBase()
   14-Mar-2022    V0.64 Adjust parsing logic of ParentChildTreeFile.txt in InterProProvider.__getInterProParents()
   16-May-2022    V0.65 Update GlyGenProvider resource URL location
+  25-Jul-2022    V0.66 Adjust UniProtUtils to temporarily use the legacy baseUrl (legacy.uniprot.org) for API calls
