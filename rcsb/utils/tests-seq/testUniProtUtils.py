@@ -365,7 +365,7 @@ class UniProtUtilsTests(unittest.TestCase):
             uUtils = UniProtUtils(saveText=False)
             geneList = ["BCOR"]
             for gene in geneList:
-                idList, retCode = uUtils.doLookup([gene], itemKey="GENENAME")
+                idList, retCode = uUtils.doLookup([gene], itemKey="Gene_Name")
                 logger.info("retCode %r rspList (%d) %r", retCode, len(idList), idList)
                 self.assertGreaterEqual(len(idList), 500)
         except Exception as e:
@@ -388,16 +388,17 @@ class UniProtUtilsTests(unittest.TestCase):
 
 def suiteFetchTests():
     suiteSelect = unittest.TestSuite()
-    suiteSelect.addTest(UniProtUtilsTests("testFetchIds"))
-    suiteSelect.addTest(UniProtUtilsTests("testBatchFetch"))
+    suiteSelect.addTest(UniProtUtilsTests("testLookup"))
+    # suiteSelect.addTest(UniProtUtilsTests("testFetchIds"))
+    # suiteSelect.addTest(UniProtUtilsTests("testBatchFetch"))
     #
     return suiteSelect
 
 
 def suiteFetchVariantTests():
     suiteSelect = unittest.TestSuite()
-    suiteSelect.addTest(UniProtUtilsTests("testFetchVariantIds"))
-    suiteSelect.addTest(UniProtUtilsTests("testBatchFetchVariants"))
+    # suiteSelect.addTest(UniProtUtilsTests("testFetchVariantIds"))
+    # suiteSelect.addTest(UniProtUtilsTests("testBatchFetchVariants"))
     #
     return suiteSelect
 

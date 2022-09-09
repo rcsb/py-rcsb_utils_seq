@@ -7,6 +7,7 @@
 # Updates:
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
+#  9-Sep-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 #
 # To Do:
 #   - Update URLs and endpoints to adapt to new UniProt API (https://www.uniprot.org/help/api)
@@ -20,6 +21,15 @@
 import collections
 import json
 import logging
+import os
+import time
+import requests
+
+import re
+# import zlib
+# from xml.etree import ElementTree
+# from urllib.parse import urlparse, parse_qs, urlencode
+# from requests.adapters import HTTPAdapter, Retry
 
 from rcsb.utils.io.FastaUtil import FastaUtil
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
@@ -516,28 +526,111 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return None, cD
 
-    def doLookup(self, itemList, itemKey="GENENAME"):
+    def doLookup(self, itemList, itemKey="Gen_Name"):
         """Do accession code lookup by mapping from itemKey to accession code for itemList.
 
         Note that the UniProt ID mapping API underwent a significant change in June 2022, which will require adapatation:
             Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
             New API docs: https://www.uniprot.org/help/id_mapping
+
+        Testing:
+        res = requests.post(f"{API_URL}/idmapping/run",data={'from': 'Gene_Name', 'to': 'UniProtKB', 'ids': 'BCOR'})
+        res2 = requests.get(f"{API_URL}/idmapping/results/8dd83042c1aa8296d7c8676cbe1683fe476f004b")"
+        res2.json()['results'][0]['to'].keys()
+        res3 = requests.get(f"{API_URL}/idmapping/uniprotkb/results/8dd83042c1aa8296d7c8676cbe1683fe476f004b")"
+        res2.json()['results'][0]['to'].keys()
+        
         """
         rL = []
         try:
-            baseUrl = self.__urlPrimary  # Will need to be changed to "https://rest.uniprot.org"
-            endPoint = "uploadlists"  # Will need to be changed to "idmapping/run"
+            # baseUrl = self.__urlPrimary  # Will need to be changed to "https://rest.uniprot.org"
+            # endPoint = "uploadlists"  # Will need to be changed to "idmapping/run"
+            baseUrl = "https://rest.uniprot.org"
+            endPoint = "idmapping/run"
             # hL = [("Accept", "application/xml")]
             hL = []
-            pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
+            # pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
+            pD = {"from": itemKey, "to": "UniProtKB", "ids": ",".join(itemList)}
+            # print("pD:", pD)
+            # print("\nITEM LIST",itemList)
             ureq = UrlRequestUtil()
-            rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-            tValL = rspTxt.split("\n") if rspTxt else []
-            idList = [tVal for tVal in tValL if tVal]
-            return idList, retCode
+            rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=hL, returnContentType="JSON")
+            # print("rspJson:", rspJson)
+            jobId = rspJson['jobId']
+            ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+            if not ok:
+                logger.error("Job failed to run or never finished.")
+            else:
+                url = 'https://rest.uniprot.org/idmapping/results/'+jobId
+                rL = []
+                for batch in self.__getBatch(url):
+                    resD = batch.json()["results"]
+                    idList = [rD["to"] for rD in resD]
+                    rL += idList
+            return rL, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
+
+    def __checkIdMappingResultsReady(self, jobId, checkInterval=10, timeout=600):
+        """Check status of UniProt REST request job.
+
+        Args:
+            jobId (str): Job ID
+            checkInterval (int, optional): number seconds to wait between request attempts. Defaults to 10.
+            timeout (int, optional): max seconds to wait for job to complete. Defaults to 600.
+        """
+        try:
+            baseUrl = "https://rest.uniprot.org"
+            endPoint = os.path.join("idmapping/status", jobId)
+            hL = []
+            ureq = UrlRequestUtil()
+            waitTime = 0
+            while waitTime < timeout:
+                rspJson, retCode = ureq.get(baseUrl, endPoint, {}, headers=hL, returnContentType="JSON")
+                if retCode != 200:
+                    logger.error("Request failed with return code %r and response %r", retCode, rspJson)
+                if "jobStatus" in rspJson:
+                    if rspJson["jobStatus"] == "RUNNING":
+                        print(f"Retrying in {checkInterval}s")
+                        time.sleep(checkInterval)
+                    else:
+                        raise Exception(rspJson["jobStatus"])
+                else:
+                    response = requests.get(os.path.join(baseUrl, endPoint))
+                    if "results" in rspJson:
+                        total = response.headers["X-Total-Results"]
+                        logger.info("Total number of resulting IDs mapped: %r", total)
+                    if "failedIds" in rspJson:
+                        logger.info("Total number of failedIds: %r", len(rspJson["failedIds"]))
+                    return bool(rspJson["results"] or rspJson["failedIds"])
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return False
+
+    def __getNextLink(self, headers):
+        """Get link for the next pagination of results.
+
+        Code from: https://www.uniprot.org/help/api_queries#12-large-number-of-results-use-pagination
+
+        Args:
+            headers (dict): response headers
+        """
+        reNextLink = re.compile(r'<(.+)>; rel="next"')
+        if "Link" in headers:
+            match = reNextLink.match(headers["Link"])
+            if match:
+                return match.group(1)
+
+    def __getBatch(self, batchUrl):
+        while batchUrl:
+            response = requests.get(batchUrl)
+            response.raise_for_status()
+            respCode = response.status_code
+            if respCode != 200:
+                logger.error("Batch request returned non-200 response code: %r", respCode)
+            yield response
+            batchUrl = self.__getNextLink(response.headers)
 
     def doGeneLookup(self, geneName, taxId, reviewed=False):
         """ """
