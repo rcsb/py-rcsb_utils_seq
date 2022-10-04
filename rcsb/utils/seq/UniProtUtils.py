@@ -574,7 +574,7 @@ class UniProtUtils(object):
                     else:
                         raise Exception(rspJson["jobStatus"])
                 else:
-                    response = requests.get(os.path.join(baseUrl, endPoint))
+                    response = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
                     if "results" in rspJson:
                         total = response.headers["X-Total-Results"]
                         logger.info("Total number of resulting IDs mapped: %r", total)
@@ -602,7 +602,7 @@ class UniProtUtils(object):
     def __getBatch(self, batchUrl):
         while batchUrl:
             logger.debug("batchUrl %r:", batchUrl)
-            response = requests.get(batchUrl)
+            response = requests.get(batchUrl, timeout=600)
             response.raise_for_status()
             respCode = response.status_code
             if respCode != 200:
