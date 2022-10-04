@@ -783,7 +783,7 @@ class UniProtJsonReader(object):
         newD.update({"version": str(resultsD["to"]["entryAudit"]["entryVersion"])})
         newD.update({"modification_date": str(resultsD["to"]["entryAudit"]["lastAnnotationUpdateDate"])})
         newD.update({"db_accession": resultsD["to"]["primaryAccession"]})
-        newD.update({"accessions": [resultsD["to"]["primaryAccession"]]+[i for i in resultsD["to"]["secondaryAccessions"]]})
+        newD.update({"accessions": [resultsD["to"]["primaryAccession"]] + [i for i in resultsD["to"]["secondaryAccessions"]]})
         newD.update({"db_code": resultsD["to"]["uniProtkbId"]})
 
         names = []

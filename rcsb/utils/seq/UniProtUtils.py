@@ -388,6 +388,9 @@ class UniProtUtils(object):
         endPoint = "idmapping/run"
         pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
         rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
+        if retCode != 200:
+            logger.error("Primary request failed with retCode %r", retCode)
+            return None, retCode
         jobId = rspJson["jobId"]
         logger.debug("jobId %r", jobId)
         ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
