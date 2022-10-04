@@ -7,15 +7,8 @@
 # Updates:
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
-#  9-Sep-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
+#  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 #
-# To Do:
-#   - Update URLs and endpoints to adapt to new UniProt API (https://www.uniprot.org/help/api)
-#     - See "Python example" API documentation for ID mapping in middle of page here: https://www.uniprot.org/help/id_mapping
-#     - Note that Queries for new REST API must use capital AND or OR boolean operators, not lowercase (https://www.uniprot.org/help/api_queries)
-#       E.g., compare the results of:
-#         YES: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+AND+taxonomy_id:9606&format=list
-#         vs.: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+and+taxonomy_id:9606&format=list
 ##
 
 import collections
@@ -144,6 +137,8 @@ class UniProtUtils(object):
                 logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
+                if not ok:
+                    logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
                 logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
@@ -153,8 +148,8 @@ class UniProtUtils(object):
                     if tD:
                         referenceD.update(tD)
                     else:
-                        logger.error("Status %r Bad xml text %r", ok, xmlText[:50])
-                        raise ValueError("Bad xml text (logging last 50 characters): %r" % xmlText[:50])
+                        logger.error("Status %r. Bad xml text. First 100 characters: %r; Last 100 characters: %r ", ok, xmlText[:100], xmlText[-100:])
+                        raise ValueError("Bad xml text")
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
@@ -387,7 +382,7 @@ class UniProtUtils(object):
         ok = False
         if usePrimary:
             ret, retCode = self.__doRequestPrimary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0
+            ok = retCode in [200] and ret and len(ret) > 0 and "Error" not in ret
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
@@ -404,14 +399,14 @@ class UniProtUtils(object):
             endPoint = "idmapping/run"
             pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
             rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
-            jobId = rspJson['jobId']
-            print("Job ID: ", jobId)
+            jobId = rspJson["jobId"]
+            print("jobId", jobId)
             ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
             if not ok:
                 logger.error("Job failed to run or never finished.")
                 return None, retCode
             endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
-            hD = {'Accept': 'application/xml'}
+            hD = {"Accept": "application/xml"}
             return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
         else:
             endPoint = "uploadlists"
@@ -568,7 +563,7 @@ class UniProtUtils(object):
                 pD = {"from": itemKey, "to": "UniProtKB", "ids": ",".join(itemList)}
                 ureq = UrlRequestUtil()
                 rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=hL, returnContentType="JSON")
-                jobId = rspJson['jobId']
+                jobId = rspJson["jobId"]
                 ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
                 if not ok:
                     logger.error("Job failed to run or never finished.")

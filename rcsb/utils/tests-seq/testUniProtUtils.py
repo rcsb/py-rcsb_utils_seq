@@ -43,7 +43,7 @@ class UniProtUtilsTests(unittest.TestCase):
         #
         # These settings are for issues with Ubuntu 20.08  (primary site is not reliable)
         self.__usePrimary = True
-        self.__retryAltApi = False
+        self.__retryAltApi = True
         #
         self.__unpIdList1 = ["P20937", "P22868", "P23832", "P21877"]
         self.__unpIdList3 = ["P20937", "P22868", "P23832"]
