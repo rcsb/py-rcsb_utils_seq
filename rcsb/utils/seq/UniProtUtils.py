@@ -16,8 +16,8 @@ import json
 import logging
 import os
 import time
-import requests
 import re
+import requests
 
 from rcsb.utils.io.FastaUtil import FastaUtil
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
@@ -43,11 +43,7 @@ class UniProtUtils(object):
 
     def __init__(self, **kwargs):
         self.__saveText = kwargs.get("saveText", False)
-        self.__newApi = True
-        if self.__newApi:
-            self.__urlPrimary = kwargs.get("urlPrimary", "https://rest.uniprot.org")
-        else:
-            self.__urlPrimary = kwargs.get("urlPrimary", "https://legacy.uniprot.org")
+        self.__urlPrimary = kwargs.get("urlPrimary", "https://rest.uniprot.org")
         self.__urlSecondary = kwargs.get("urlSecondary", "https://www.ebi.ac.uk")
         self.__dataList = []
         self.__unpFeatureD = {
@@ -362,9 +358,6 @@ class UniProtUtils(object):
         contains keys corresponding to the original input id list.
 
         return dict:
-
-        Example of retD BEFORE new UniProt API (first retD from running testFetchIds in testUniProtUtils.py):
-            {'P20937': {'db_name': 'Swiss-Prot', 'version': '142', 'modification_date': '2022-05-25', 'db_accession': 'P20937', 'accessions': ['P20937'], 'db_code': 'KLRA1_MOUSE', 'names': [{'name': 'T-cell surface glycoprotein YE1/48', 'isAbbrev': False, 'nameType': 'recommendedName'}, {'name': 'Ly-49a', 'isAbbrev': True, 'nameType': 'alternativeName'}, {'name': 'T lymphocyte antigen A1', 'isAbbrev': False, 'nameType': 'alternativeName'}], 'gene': [{'name': 'Klra1', 'type': 'primary'}, {'name': 'Ly-49', 'type': 'synonym'}, {'name': 'Ly-49a', 'type': 'synonym'}, {'name': 'Ly49', 'type': 'synonym'}, {'name': 'Ly49A', 'type': 'synonym'}], 'source_scientific': 'Mus musculus', 'source_common': 'Mouse', 'taxonomy_id': 10090, 'taxonomy_evc': None, 'comments': [{'type': 'function', 'text': 'Receptor on natural killer (NK) cells for H-2d alleles. Inhibits the activity of NK cells thus preventing cell lysis.', 'evidence': None}, {'type': 'subunit', 'text': 'Homodimer; disulfide-linked.', 'evidence': '3'}, {'type': 'tissue specificity', 'text': 'High, in T-lymphoma lines, very low in normal lymphocytes.', 'evidence': None}], 'dbReferences': [{'resource': 'EMBL', 'id_code': 'M25775', 'protein sequence ID': 'AAA40578.1', 'status': 'ALT_SEQ', 'molecule type': 'mRNA'}, {'resource': 'EMBL', 'id_code': 'M25812', 'protein sequence ID': 'AAA37242.1', 'molecule type': 'mRNA'}, {'resource': 'PIR', 'id_code': 'A30573'}, {'resource': 'PIR', 'id_code': 'A45813'}, {'resource': 'GO', 'id_code': 'GO:0009897', 'term': 'C:external side of plasma membrane', 'evidence': 'ECO:0000314', 'project': 'MGI'}, {'resource': 'GO', 'id_code': 'GO:0016021', 'term': 'C:integral component of membrane', 'evidence': 'ECO:0007669', 'project': 'UniProtKB-KW'}, {'resource': 'GO', 'id_code': 'GO:0005886', 'term': 'C:plasma membrane', 'evidence': 'ECO:0000304', 'project': 'MGI'}, {'resource': 'GO', 'id_code': 'GO:0030246', 'term': 'F:carbohydrate binding', 'evidence': 'ECO:0007669', 'project': 'UniProtKB-KW'}, {'resource': 'GO', 'id_code': 'GO:0038023', 'term': 'F:signaling receptor activity', 'evidence': 'ECO:0000314', 'project': 'MGI'}, {'resource': 'GO', 'id_code': 'GO:0007155', 'term': 'P:cell adhesion', 'evidence': 'ECO:0007669', 'project': 'UniProtKB-KW'}, {'resource': 'InterPro', 'id_code': 'IPR001304', 'entry name': 'C-type_lectin-like'}, {'resource': 'InterPro', 'id_code': 'IPR016186', 'entry name': 'C-type_lectin-like/link_sf'}, {'resource': 'InterPro', 'id_code': 'IPR016187', 'entry name': 'CTDL_fold'}, {'resource': 'InterPro', 'id_code': 'IPR013600', 'entry name': 'Ly49_N'}, {'resource': 'InterPro', 'id_code': 'IPR033992', 'entry name': 'NKR-like_CTLD'}, {'resource': 'Pfam', 'id_code': 'PF00059', 'entry name': 'Lectin_C', 'match status': '1'}, {'resource': 'Pfam', 'id_code': 'PF08391', 'entry name': 'Ly49', 'match status': '1'}], 'keywords': [{'id': 'KW-0002', 'keyword': '3D-structure'}, {'id': 'KW-0130', 'keyword': 'Cell adhesion'}, {'id': 'KW-1015', 'keyword': 'Disulfide bond'}, {'id': 'KW-0325', 'keyword': 'Glycoprotein'}, {'id': 'KW-0430', 'keyword': 'Lectin'}, {'id': 'KW-0472', 'keyword': 'Membrane'}, {'id': 'KW-0675', 'keyword': 'Receptor'}, {'id': 'KW-1185', 'keyword': 'Reference proteome'}, {'id': 'KW-0735', 'keyword': 'Signal-anchor'}, {'id': 'KW-0812', 'keyword': 'Transmembrane'}, {'id': 'KW-1133', 'keyword': 'Transmembrane helix'}], 'features': [{'type': 'chain', 'feature_id': 'PRO_0000046679', 'description': 'T-cell surface glycoprotein YE1/48', 'begin': '1', 'end': '262'}, {'type': 'topological domain', 'description': 'Cytoplasmic', 'evidence': '4', 'begin': '1', 'end': '44'}, {'type': 'transmembrane region', 'description': 'Helical; Signal-anchor for type II membrane protein', 'evidence': '1', 'begin': '45', 'end': '66'}, {'type': 'topological domain', 'description': 'Extracellular', 'evidence': '4', 'begin': '67', 'end': '262'}, {'type': 'domain', 'description': 'C-type lectin', 'evidence': '2', 'begin': '138', 'end': '257'}, {'type': 'short sequence motif', 'description': 'Cell attachment site', 'begin': '137', 'end': '139'}, {'type': 'glycosylation site', 'description': 'N-linked (GlcNAc...) asparagine', 'evidence': '1', 'position': '86'}, {'type': 'glycosylation site', 'description': 'N-linked (GlcNAc...) asparagine', 'evidence': '1', 'position': '103'}, {'type': 'glycosylation site', 'description': 'N-linked (GlcNAc...) asparagine', 'evidence': '1', 'position': '123'}, {'type': 'disulfide bond', 'evidence': '2 3', 'begin': '145', 'end': '150'}, {'type': 'disulfide bond', 'evidence': '2 3', 'begin': '163', 'end': '251'}, {'type': 'disulfide bond', 'evidence': '2 3', 'begin': '167', 'end': '253'}, {'type': 'disulfide bond', 'evidence': '2 3', 'begin': '232', 'end': '245'}, {'type': 'sequence conflict', 'reference': '2', 'description': 'In Ref. 2; AAA37242.', 'evidence': '4', 'begin': '76', 'end': '78', 'variation': 'KLQ', 'original': 'NCE'}, {'type': 'sequence conflict', 'reference': '2', 'description': 'In Ref. 2; AAA37242.', 'evidence': '4', 'position': '106', 'variation': 'M', 'original': 'I'}, {'type': 'sequence conflict', 'reference': '2', 'description': 'In Ref. 2; AAA40578/AAA37242.', 'evidence': '4', 'position': '166', 'variation': 'T', 'original': 'A'}, {'type': 'sequence conflict', 'reference': '2', 'description': 'In Ref. 2; AAA37242.', 'evidence': '4', 'position': '223', 'variation': 'R', 'original': 'G'}, {'type': 'strand', 'evidence': '5', 'begin': '141', 'end': '146'}, {'type': 'strand', 'evidence': '5', 'begin': '149', 'end': '158'}, {'type': 'helix', 'evidence': '5', 'begin': '160', 'end': '169'}, {'type': 'helix', 'evidence': '5', 'begin': '180', 'end': '189'}, {'type': 'strand', 'evidence': '5', 'begin': '195', 'end': '202'}, {'type': 'helix', 'evidence': '5', 'begin': '203', 'end': '205'}, {'type': 'strand', 'evidence': '5', 'begin': '207', 'end': '210'}, {'type': 'helix', 'evidence': '5', 'begin': '227', 'end': '229'}, {'type': 'strand', 'evidence': '5', 'begin': '231', 'end': '235'}, {'type': 'strand', 'evidence': '5', 'begin': '240', 'end': '243'}, {'type': 'strand', 'evidence': '5', 'begin': '249', 'end': '256'}], 'evidence': {'1': 'ECO:0000255', '2': 'ECO:0000255', '3': 'ECO:0000269', '4': 'ECO:0000305', '5': 'ECO:0007829'}, 'sequence': 'MSEQEVTYSMVRFHKSAGLQKQVRPEETKGPREAGYRRCSFHWKFIVIALGIFCFLLLVAVSVLAIKIFQYDQQKNCEEFLNHHNNCSNMQSDINLKDEMLKNKSIECDLLESLNRDQNRLYNKTKTVLDSLQHTGRGDKVYWFCYGMKCYYFVMDRKTWSGCKQACQSSSLSLLKIDDEDELKFLQLVVPSDSCWVGLSYDNKKKDWAWIDNRPSKLALNTGKYNIRDGGCMLLSKTRLDNGNCDQVFICICGKRLDKFPH'}}
         """
         ur = UniProtReader()
         try:
@@ -377,7 +370,7 @@ class UniProtUtils(object):
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return {}
-    
+
     def __doRequest(self, idList, retryAltApi=True, usePrimary=True):
         ok = False
         if usePrimary:
@@ -395,24 +388,18 @@ class UniProtUtils(object):
         """ """
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
-        if self.__newApi:
-            endPoint = "idmapping/run"
-            pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
-            rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
-            jobId = rspJson["jobId"]
-            print("jobId", jobId)
-            ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
-            if not ok:
-                logger.error("Job failed to run or never finished.")
-                return None, retCode
-            endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
-            hD = {"Accept": "application/xml"}
-            return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
-        else:
-            endPoint = "uploadlists"
-            hL = [("Accept", "application/xml")]
-            pD = {"from": "ACC+ID", "to": "ACC", "format": "xml", "query": " ".join(idList)}
-            return ureq.get(baseUrl, endPoint, pD, headers=hL)
+        endPoint = "idmapping/run"
+        pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
+        rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
+        jobId = rspJson["jobId"]
+        print("jobId", jobId)
+        ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+        if not ok:
+            logger.error("Job failed to run or never finished.")
+            return None, retCode
+        endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
+        hD = {"Accept": "application/xml"}
+        return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
 
     def __doRequestSecondary(self, idList):
         baseUrl = self.__urlSecondary
@@ -541,50 +528,27 @@ class UniProtUtils(object):
 
     def doLookup(self, itemList, itemKey="Gen_Name"):
         """Do accession code lookup by mapping from itemKey to accession code for itemList.
-
-        Note that the UniProt ID mapping API underwent a significant change in June 2022, which will require adapatation:
-            Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
-            New API docs: https://www.uniprot.org/help/id_mapping
-
-        Testing:
-        res = requests.post(f"{API_URL}/idmapping/run",data={'from': 'Gene_Name', 'to': 'UniProtKB', 'ids': 'BCOR'})
-        res2 = requests.get(f"{API_URL}/idmapping/results/8dd83042c1aa8296d7c8676cbe1683fe476f004b")"
-        res2.json()['results'][0]['to'].keys()
-        res3 = requests.get(f"{API_URL}/idmapping/uniprotkb/results/8dd83042c1aa8296d7c8676cbe1683fe476f004b")"
-        res2.json()['results'][0]['to'].keys()
-        
         """
         rL = []
         try:
-            baseUrl = self.__urlPrimary  # Will need to be changed to "https://rest.uniprot.org"
-            if self.__newApi:
-                endPoint = "idmapping/run"
-                hL = []
-                pD = {"from": itemKey, "to": "UniProtKB", "ids": ",".join(itemList)}
-                ureq = UrlRequestUtil()
-                rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=hL, returnContentType="JSON")
-                jobId = rspJson["jobId"]
-                ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
-                if not ok:
-                    logger.error("Job failed to run or never finished.")
-                else:
-                    batchUrl = os.path.join(self.__urlPrimary, "idmapping/results", jobId)
-                    rL = []
-                    for batch in self.__getBatch(batchUrl):
-                        resD = batch.json()["results"]
-                        idList = [rD["to"] for rD in resD]
-                        rL += idList
-                return rL, retCode
+            baseUrl = self.__urlPrimary
+            endPoint = "idmapping/run"
+            hL = []
+            pD = {"from": itemKey, "to": "UniProtKB", "ids": ",".join(itemList)}
+            ureq = UrlRequestUtil()
+            rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=hL, returnContentType="JSON")
+            jobId = rspJson["jobId"]
+            ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+            if not ok:
+                logger.error("Job failed to run or never finished.")
             else:
-                endPoint = "uploadlists"  # Will need to be changed to "idmapping/run"
-                # hL = [("Accept", "application/xml")]
-                hL = []
-                pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
-                ureq = UrlRequestUtil()
-                rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-                tValL = rspTxt.split("\n") if rspTxt else []
-                idList = [tVal for tVal in tValL if tVal]
-                return idList, retCode
+                batchUrl = os.path.join(self.__urlPrimary, "idmapping/results", jobId)
+                rL = []
+                for batch in self.__getBatch(batchUrl):
+                    resD = batch.json()["results"]
+                    idList = [rD["to"] for rD in resD]
+                    rL += idList
+            return rL, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
@@ -653,31 +617,18 @@ class UniProtUtils(object):
         """ """
         rL = []
         try:
-            baseUrl = self.__urlPrimary  # Comment back in once all other methods are updated with new UniProt API
-            if self.__newApi:
-                endPoint = "uniprotkb/search"
-                hL = []
-                if reviewed:
-                    pD = {"query": 'gene:"%s" AND taxonomy_id:%s AND reviewed:yes' % (geneName, taxId), "format": "list"}
-                else:
-                    pD = {"query": 'gene:"%s" AND taxonomy_id:%s' % (geneName, taxId), "format": "list"}
-                ureq = UrlRequestUtil()
-                rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-                tValL = rspTxt.split("\n") if rspTxt else []
-                idList = [tVal for tVal in tValL if tVal]
-                return idList, retCode
+            baseUrl = self.__urlPrimary
+            endPoint = "uniprotkb/search"
+            hL = []
+            if reviewed:
+                pD = {"query": 'gene:"%s" AND taxonomy_id:%s AND reviewed:yes' % (geneName, taxId), "format": "list"}
             else:
-                endPoint = "uniprot"
-                hL = []
-                if reviewed:
-                    pD = {"query": 'gene:"%s" and taxonomy:%s and reviewed:yes' % (geneName, taxId), "format": "list"}
-                else:
-                    pD = {"query": 'gene:"%s" and taxonomy:%s' % (geneName, taxId), "format": "list"}
-                ureq = UrlRequestUtil()
-                rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-                tValL = rspTxt.split("\n") if rspTxt else []
-                idList = [tVal for tVal in tValL if tVal]
-                return idList, retCode
+                pD = {"query": 'gene:"%s" AND taxonomy_id:%s' % (geneName, taxId), "format": "list"}
+            ureq = UrlRequestUtil()
+            rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
+            tValL = rspTxt.split("\n") if rspTxt else []
+            idList = [tVal for tVal in tValL if tVal]
+            return idList, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
