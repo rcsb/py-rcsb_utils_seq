@@ -154,7 +154,7 @@ class UniProtUtilsTests(unittest.TestCase):
             # Note: this list contains one obsolete entry
             idList = self.__unpIdList1
             ok, sD = fobj.fetchSequenceList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
-            print("sD:", sD)
+            logger.debug("sD: %r", sD)
             self.assertFalse(ok)
             self.assertEqual(len(sD), len(idList) - 1)
             if self.__export:

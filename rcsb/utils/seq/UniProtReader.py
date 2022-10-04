@@ -2,6 +2,10 @@
 # File:    UniProtReader.py
 # Date:    15-Mar-2019
 #          JDW - Adapted from earlier SBKB code -
+#
+# Updates:
+#  4-Oct-2022 dwp Introduced UniProtJsonReader class to read JSON resopnses from uniprot.org; initial work started
+#
 ##
 
 
@@ -10,6 +14,7 @@ import logging
 import string
 import sys
 from xml.dom import minidom
+from rcsb.utils.io.MarshalUtil import MarshalUtil
 
 if sys.version_info.major < 3:
     # Missing method in the py27 minidom breaks 'in' operations
@@ -708,3 +713,155 @@ class UniProtReader(object):
                 continue
             sL.append(ss)
         return "".join(sL)
+
+
+class UniProtJsonReader(object):
+    """Read Uniprot entry JSON and put the following information into dictionary.
+       (Note that this may become necessary to fully implement in case XML format
+       return type stops being offered. Also, primary site uniprot.org only provides
+       full batches in JSON via streaming/pagination; XML is now cut short for large
+       batches.)
+
+       ** Not Ready: This still requires quite a bit more work to finish and test **
+
+        dict['db_code']           - code
+        dict['db_accession']      - primary accession code
+        dict['accessions']        - all accessions
+        dict['sequence']          - sequence
+        dict['keywords']           - keywords
+        dict['names']              - protein names
+        dict['gene']               - gene names
+        dict['source_scientific'] - source scientific name
+        dict['source_common']     - source common name
+        dict['taxonomy_id']       - source taxonomy ID
+        dict['comments']          - Uniprot comments
+        dict['dbReferences']      - various related annotations
+
+     If there is a registered variant, <isoform> tags are parsed:
+
+        ...see above for examples in XML...
+
+    and <feature type="splice variant"> tags:
+
+        ...see above for examples in XML...
+
+    to find the isoform sequence. If no match found, the default sequence from <sequence> tag
+    will be used.
+    """
+
+    def __init__(self):
+        self.__variantD = {}
+        self.__accessionD = {}
+
+    def readFile(self, fileName):
+        eDict = {}
+        try:
+            mU = MarshalUtil()
+            resultsD = mU.doImport(fileName, fmt="json")
+            eDict = self.__parse(resultsD)
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return eDict
+
+    def readDict(self, resultsD):
+        eDict = {}
+        try:
+            logger.debug("Using variants %r", self.__variantD)
+            logger.debug("Using accessionD %r", self.__accessionD)
+            eDict = self.__parse(resultsD)
+            logger.debug("eDict keys %r", list(eDict.keys()))
+        except Exception as e:
+            logger.error("Failing with %s", str(e))
+
+        return eDict
+
+    def __parse(self, resultsD):
+        """Parse a single result from the result list"""
+        newD = {}
+
+        newD.update({"db_name": "Swiss-Prot" if resultsD["to"]["entryType"].endswith("(Swiss-Prot)") else resultsD["to"]["entryType"]})
+        newD.update({"version": str(resultsD["to"]["entryAudit"]["entryVersion"])})
+        newD.update({"modification_date": str(resultsD["to"]["entryAudit"]["lastAnnotationUpdateDate"])})
+        newD.update({"db_accession": resultsD["to"]["primaryAccession"]})
+        newD.update({"accessions": [resultsD["to"]["primaryAccession"]]+[i for i in resultsD["to"]["secondaryAccessions"]]})
+        newD.update({"db_code": resultsD["to"]["uniProtkbId"]})
+
+        names = []
+        names.append({"name": resultsD["to"]["proteinDescription"]["recommendedName"]["fullName"]["value"], "isAbbrev": False, "nameType": "recommendedName"})
+        for alt in resultsD["to"]["proteinDescription"]["alternativeNames"]:
+            if "shortNames" in alt:
+                for altShort in alt["shortNames"]:
+                    names.append({"name": altShort["value"], "isAbbrev": True, "nameType": "alternativeName"})
+            else:
+                names.append({"name": alt["fullName"]["value"], "isAbbrev": False, "nameType": "alternativeName"})
+
+        newD.update({"names": names})
+
+        genes = []
+        for gene in resultsD["to"]["genes"]:
+            genes.append({"name": gene["geneName"]["value"], "type": "primary"})
+            if "synonyms" in gene:
+                for syn in gene["synonyms"]:
+                    genes.append({"name": syn["value"], "type": "synonym"})
+        newD.update({"gene": genes})
+
+        newD.update({"source_scientific": resultsD["to"]["organism"]["scientificName"]})
+        newD.update({"source_common": resultsD["to"]["organism"]["commonName"]})
+        newD.update({"taxonomy_id": resultsD["to"]["organism"]["taxonId"]})
+        if "taxonKey" in resultsD["to"]["organism"]:
+            newD.update({"taxonomy_evc": resultsD["to"]["organism"]["taxonKey"]})
+        else:
+            newD.update({"taxonomy_evc": None})
+
+        eL = [dict(i) for i in self.__genDictExtract("evidenceCode", {"comments": resultsD["to"]["comments"], "features":resultsD["to"]["features"]}, [])]
+        evidenceL = []
+        for eD in eL:
+            if eD not in evidenceL:
+                evidenceL.append(eD)
+        evidenceL = sorted(evidenceL, key=lambda d: d["evidenceCode"])
+        evidenceD, evidenceFullD, idx = {}, {}, 1
+        for eD in evidenceL:
+            evidenceD.update({idx: eD["evidenceCode"]})
+            evidenceFullD.update({(eD["evidenceCode"], eD.get("source", None), eD.get("id", None)): idx})
+            idx += 1
+
+        newD.update({"evidence": evidenceD})
+
+        commentsL = []
+        for comment in resultsD["to"]["comments"]:
+            if "commentType" in comment:
+                commentType = comment["commentType"].lower()
+                if "texts" in comment:
+                    commentText = comment["texts"][0]["value"]
+                    commentEvidence = " ".join([str(evidenceFullD[(eD["evidenceCode"], eD.get("source", None), eD.get("id", None))]) for eD in comment["texts"][0]["evidences"]])
+                elif "note" in comment:
+                    if isinstance(comment["note"], str):
+                        commentText = comment["note"]
+                        commentEvidence = " ".join([str(evidenceFullD[(eD["evidenceCode"], eD.get("source", None), eD.get("id", None))]) for eD in comment["evidences"]])
+                    else:
+                        commentText = comment["note"]["texts"][0]["value"]
+                        commentEvidence = " ".join(
+                            [str(evidenceFullD[(eD["evidenceCode"], eD.get("source", None), eD.get("id", None))]) for eD in comment["note"]["texts"][0]["evidences"]]
+                        )
+
+                commentsL.append({"type": commentType, "text": commentText, "evidence": commentEvidence})
+
+        newD.update({"comments": commentsL})
+
+        print(newD)
+        return newD
+
+    def __genDictExtract(self, key, var, idList):
+        """Reference: https://stackoverflow.com/a/29652561/5420857
+        """
+        if hasattr(var, "items"):
+            for k, v in var.items():
+                if k == key:
+                    yield var
+                if isinstance(v, dict):
+                    for result in self.__genDictExtract(key, v, idList):
+                        yield result
+                elif isinstance(v, list):
+                    for dObj in v:
+                        for result in self.__genDictExtract(key, dObj, idList):
+                            yield result

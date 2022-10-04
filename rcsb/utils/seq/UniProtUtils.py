@@ -343,7 +343,6 @@ class UniProtUtils(object):
         #
         return rObj
 
-    #
     def writeUnpXml(self, filePath):
         with open(filePath, "w", encoding="utf-8") as ofh:
             for data in self.__dataList:
@@ -356,8 +355,6 @@ class UniProtUtils(object):
 
         variant id codes are regisistered with the parser so that the returned dictionary
         contains keys corresponding to the original input id list.
-
-        return dict:
         """
         ur = UniProtReader()
         try:
@@ -375,7 +372,7 @@ class UniProtUtils(object):
         ok = False
         if usePrimary:
             ret, retCode = self.__doRequestPrimary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0 and "Error" not in ret
+            ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
@@ -392,7 +389,7 @@ class UniProtUtils(object):
         pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
         rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
         jobId = rspJson["jobId"]
-        print("jobId", jobId)
+        logger.debug("jobId %r", jobId)
         ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
         if not ok:
             logger.error("Job failed to run or never finished.")
@@ -572,7 +569,7 @@ class UniProtUtils(object):
                     logger.error("Request failed with return code %r and response %r", retCode, rspJson)
                 if "jobStatus" in rspJson:
                     if rspJson["jobStatus"] == "RUNNING":
-                        print(f"Retrying in {checkInterval}s")
+                        logger.info("Retrying in %r s", checkInterval)
                         time.sleep(checkInterval)
                     else:
                         raise Exception(rspJson["jobStatus"])
