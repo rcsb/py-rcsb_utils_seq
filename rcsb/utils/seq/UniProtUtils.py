@@ -7,19 +7,17 @@
 # Updates:
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
+#  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 #
-# To Do:
-#   - Update URLs and endpoints to adapt to new UniProt API (https://www.uniprot.org/help/api)
-#     - See "Python example" API documentation for ID mapping in middle of page here: https://www.uniprot.org/help/id_mapping
-#     - Note that Queries for new REST API must use capital AND or OR boolean operators, not lowercase (https://www.uniprot.org/help/api_queries)
-#       E.g., compare the results of:
-#         YES: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+AND+taxonomy_id:9606&format=list
-#         vs.: https://rest.uniprot.org/uniprotkb/search?query=gene:%22BCOR%22+and+taxonomy_id:9606&format=list
 ##
 
 import collections
 import json
 import logging
+import os
+import time
+import re
+import requests
 
 from rcsb.utils.io.FastaUtil import FastaUtil
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
@@ -45,7 +43,7 @@ class UniProtUtils(object):
 
     def __init__(self, **kwargs):
         self.__saveText = kwargs.get("saveText", False)
-        self.__urlPrimary = kwargs.get("urlPrimary", "https://legacy.uniprot.org")
+        self.__urlPrimary = kwargs.get("urlPrimary", "https://rest.uniprot.org")
         self.__urlSecondary = kwargs.get("urlSecondary", "https://www.ebi.ac.uk")
         self.__dataList = []
         self.__unpFeatureD = {
@@ -135,6 +133,8 @@ class UniProtUtils(object):
                 logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
+                if not ok:
+                    logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
                 logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
@@ -144,7 +144,8 @@ class UniProtUtils(object):
                     if tD:
                         referenceD.update(tD)
                     else:
-                        logger.error("Status %r Bad xml text %r", ok, xmlText[:50])
+                        logger.error("Status %r. Bad xml text. First 100 characters: %r; Last 100 characters: %r ", ok, xmlText[:100], xmlText[-100:])
+                        raise ValueError("Bad xml text")
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
@@ -342,7 +343,6 @@ class UniProtUtils(object):
         #
         return rObj
 
-    #
     def writeUnpXml(self, filePath):
         with open(filePath, "w", encoding="utf-8") as ofh:
             for data in self.__dataList:
@@ -355,7 +355,6 @@ class UniProtUtils(object):
 
         variant id codes are regisistered with the parser so that the returned dictionary
         contains keys corresponding to the original input id list.
-
         """
         ur = UniProtReader()
         try:
@@ -363,6 +362,7 @@ class UniProtUtils(object):
             for vId, aId in variantD.items():
                 ur.addVariant(aId, vId)
             retD = ur.readString(xmlText)
+            logger.debug("retD: %r", retD)
             return retD
         except Exception as e:
             logger.exception("Failing with %s", str(e))
@@ -372,7 +372,7 @@ class UniProtUtils(object):
         ok = False
         if usePrimary:
             ret, retCode = self.__doRequestPrimary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0
+            ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
@@ -384,11 +384,22 @@ class UniProtUtils(object):
     def __doRequestPrimary(self, idList):
         """ """
         baseUrl = self.__urlPrimary
-        endPoint = "uploadlists"
-        hL = [("Accept", "application/xml")]
-        pD = {"from": "ACC+ID", "to": "ACC", "format": "xml", "query": " ".join(idList)}
         ureq = UrlRequestUtil()
-        return ureq.get(baseUrl, endPoint, pD, headers=hL)
+        endPoint = "idmapping/run"
+        pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
+        rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
+        if retCode != 200:
+            logger.error("Primary request failed with retCode %r", retCode)
+            return None, retCode
+        jobId = rspJson["jobId"]
+        logger.debug("jobId %r", jobId)
+        ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+        if not ok:
+            logger.error("Job failed to run or never finished.")
+            return None, retCode
+        endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
+        hD = {"Accept": "application/xml"}
+        return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
 
     def __doRequestSecondary(self, idList):
         baseUrl = self.__urlSecondary
@@ -455,14 +466,13 @@ class UniProtUtils(object):
     def __doSequenceRequestPrimary(self, unpIdList):
         """ """
         sD = {}
-        fmt = "fasta"
         baseUrl = self.__urlPrimary
         hD = {"Accept": "text/x-fasta"}
-        pD = {}
+        pD = {"format": "fasta"}
         ureq = UrlRequestUtil()
         ok = True
         for unpId in unpIdList:
-            endPoint = "uniprot/" + unpId + "." + fmt
+            endPoint = "uniprotkb/" + unpId
             ret, retCode = ureq.getUnWrapped(baseUrl, endPoint, pD, headers=hD)
             logger.debug("unpId %r url %s endpoint %r ret %r retCode %r", unpId, baseUrl, endPoint, ret, retCode)
             if retCode in [200] and ret and len(ret) > 0:
@@ -516,37 +526,99 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return None, cD
 
-    def doLookup(self, itemList, itemKey="GENENAME"):
+    def doLookup(self, itemList, itemKey="Gen_Name"):
         """Do accession code lookup by mapping from itemKey to accession code for itemList.
-
-        Note that the UniProt ID mapping API underwent a significant change in June 2022, which will require adapatation:
-            Legacy docs:  https://legacy.uniprot.org/help/api_idmapping
-            New API docs: https://www.uniprot.org/help/id_mapping
         """
         rL = []
         try:
-            baseUrl = self.__urlPrimary  # Will need to be changed to "https://rest.uniprot.org"
-            endPoint = "uploadlists"  # Will need to be changed to "idmapping/run"
-            # hL = [("Accept", "application/xml")]
+            baseUrl = self.__urlPrimary
+            endPoint = "idmapping/run"
             hL = []
-            pD = {"from": itemKey, "to": "ACC", "format": "list", "query": " ".join(itemList)}
+            pD = {"from": itemKey, "to": "UniProtKB", "ids": ",".join(itemList)}
             ureq = UrlRequestUtil()
-            rspTxt, retCode = ureq.get(baseUrl, endPoint, pD, headers=hL)
-            tValL = rspTxt.split("\n") if rspTxt else []
-            idList = [tVal for tVal in tValL if tVal]
-            return idList, retCode
+            rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=hL, returnContentType="JSON")
+            jobId = rspJson["jobId"]
+            ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+            if not ok:
+                logger.error("Job failed to run or never finished.")
+            else:
+                batchUrl = os.path.join(self.__urlPrimary, "idmapping/results", jobId)
+                rL = []
+                for batch in self.__getBatch(batchUrl):
+                    resD = batch.json()["results"]
+                    idList = [rD["to"] for rD in resD]
+                    rL += idList
+            return rL, retCode
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return rL, None
+
+    def __checkIdMappingResultsReady(self, jobId, checkInterval=10, timeout=600):
+        """Check status of UniProt REST request job.
+
+        Args:
+            jobId (str): Job ID
+            checkInterval (int, optional): number seconds to wait between request attempts. Defaults to 10.
+            timeout (int, optional): max seconds to wait for job to complete. Defaults to 600.
+        """
+        try:
+            baseUrl = self.__urlPrimary
+            endPoint = os.path.join("idmapping/status", jobId)
+            ureq = UrlRequestUtil()
+            waitTime = 0
+            while waitTime < timeout:
+                rspJson, retCode = ureq.get(baseUrl, endPoint, {}, headers=[], returnContentType="JSON")
+                if retCode != 200:
+                    logger.error("Request failed with return code %r and response %r", retCode, rspJson)
+                if "jobStatus" in rspJson:
+                    if rspJson["jobStatus"] == "RUNNING":
+                        logger.info("Retrying in %r s", checkInterval)
+                        time.sleep(checkInterval)
+                    else:
+                        raise Exception(rspJson["jobStatus"])
+                else:
+                    response = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
+                    if "results" in rspJson:
+                        total = response.headers["X-Total-Results"]
+                        logger.info("Total number of resulting IDs mapped: %r", total)
+                    if "failedIds" in rspJson:
+                        logger.info("Total number of failedIds: %r", len(rspJson["failedIds"]))
+                    return bool(rspJson["results"] or rspJson["failedIds"])
+        except Exception as e:
+            logger.exception("Failing with %s", str(e))
+        return False
+
+    def __getNextLink(self, headers):
+        """Get link for the next pagination of results.
+
+        Code from: https://www.uniprot.org/help/api_queries#12-large-number-of-results-use-pagination
+
+        Args:
+            headers (dict): response headers
+        """
+        reNextLink = re.compile(r'<(.+)>; rel="next"')
+        if "Link" in headers:
+            match = reNextLink.match(headers["Link"])
+            if match:
+                return match.group(1)
+
+    def __getBatch(self, batchUrl):
+        while batchUrl:
+            logger.debug("batchUrl %r:", batchUrl)
+            response = requests.get(batchUrl, timeout=600)
+            response.raise_for_status()
+            respCode = response.status_code
+            if respCode != 200:
+                logger.error("Batch request returned non-200 response code: %r", respCode)
+            yield response
+            batchUrl = self.__getNextLink(response.headers)
 
     def doGeneLookup(self, geneName, taxId, reviewed=False):
         """ """
         rL = []
         try:
-            # baseUrl = self.__urlPrimary  # Comment back in once all other methods are updated with new UniProt API
-            baseUrl = "https://rest.uniprot.org"  # new UniProt API baseUrl
+            baseUrl = self.__urlPrimary
             endPoint = "uniprotkb/search"
-            # hL = [("Accept", "application/xml")]
             hL = []
             if reviewed:
                 pD = {"query": 'gene:"%s" AND taxonomy_id:%s AND reviewed:yes' % (geneName, taxId), "format": "list"}

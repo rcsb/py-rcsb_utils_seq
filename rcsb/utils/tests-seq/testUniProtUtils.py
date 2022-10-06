@@ -42,7 +42,7 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__workPath = os.path.join(HERE, "test-output")
         #
         # These settings are for issues with Ubuntu 20.08  (primary site is not reliable)
-        self.__usePrimary = False
+        self.__usePrimary = True
         self.__retryAltApi = True
         #
         self.__unpIdList1 = ["P20937", "P22868", "P23832", "P21877"]
@@ -154,6 +154,7 @@ class UniProtUtilsTests(unittest.TestCase):
             # Note: this list contains one obsolete entry
             idList = self.__unpIdList1
             ok, sD = fobj.fetchSequenceList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
+            logger.debug("sD: %r", sD)
             self.assertFalse(ok)
             self.assertEqual(len(sD), len(idList) - 1)
             if self.__export:
@@ -365,7 +366,7 @@ class UniProtUtilsTests(unittest.TestCase):
             uUtils = UniProtUtils(saveText=False)
             geneList = ["BCOR"]
             for gene in geneList:
-                idList, retCode = uUtils.doLookup([gene], itemKey="GENENAME")
+                idList, retCode = uUtils.doLookup([gene], itemKey="Gene_Name")
                 logger.info("retCode %r rspList (%d) %r", retCode, len(idList), idList)
                 self.assertGreaterEqual(len(idList), 500)
         except Exception as e:
@@ -388,7 +389,9 @@ class UniProtUtilsTests(unittest.TestCase):
 
 def suiteFetchTests():
     suiteSelect = unittest.TestSuite()
+    suiteSelect.addTest(UniProtUtilsTests("testLookup"))
     suiteSelect.addTest(UniProtUtilsTests("testFetchIds"))
+    suiteSelect.addTest(UniProtUtilsTests("testFetchSequenceList"))
     suiteSelect.addTest(UniProtUtilsTests("testBatchFetch"))
     #
     return suiteSelect
