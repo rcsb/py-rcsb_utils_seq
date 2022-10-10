@@ -5,6 +5,7 @@
 # Updates:
 #  14-Mar-2022 dwp Adjust parsing logic in getInterProParents to prevent overwriting of parent Ids for children that are redundantly listed
 #                  for each hierarchical level in the ParentChildTreeFile.txt file
+#  10-Oct-2022 dwp Update URLs to InterPro data, and add 'useFallBack' argument to more specifically test building of cache from source
 #
 ##
 
@@ -22,13 +23,14 @@ class InterProProvider(object):
     """Manage mappings of InterPro identifiers to description and parent/child relationships"""
 
     def __init__(self, **kwargs):
-        urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current/entry.list")
+        urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current_release/entry.list")
         urlTargetInterProFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/entry.list"
-        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current/ParentChildTreeFile.txt")
+        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current_release/ParentChildTreeFile.txt")
         urlTargetInterProParentFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/ParentChildTreeFile.txt"
         cachePath = kwargs.get("cachePath", ".")
         dirPath = os.path.join(cachePath, "interPro")
         useCache = kwargs.get("useCache", True)
+        self.__useFallBack = kwargs.get("useFallBack", True)
         #
         self.__mU = MarshalUtil(workPath=dirPath)
         self.__interProD, self.__interProParentD = self.__rebuildCache(urlTargetInterPro, urlTargetInterProFB, urlTargetInterProParent, urlTargetInterProParentFB, dirPath, useCache)
@@ -74,7 +76,7 @@ class InterProProvider(object):
             logger.info("Fetch data from source %s in %s", urlTargetInterPro, dirPath)
             fp = os.path.join(dirPath, fU.getFileName(urlTargetInterPro))
             ok = fU.get(urlTargetInterPro, fp)
-            if not ok:
+            if not ok and self.__useFallBack:
                 fp = os.path.join(dirPath, fU.getFileName(urlTargetInterProFB))
                 ok = fU.get(urlTargetInterProFB, fp)
                 logger.info("Fetch data fallback fetch status is %r", ok)
@@ -85,7 +87,7 @@ class InterProProvider(object):
             logger.info("Fetch data from source %s in %s", urlTargetInterProParent, dirPath)
             fp = os.path.join(dirPath, fU.getFileName(urlTargetInterProParent))
             ok = fU.get(urlTargetInterProParent, fp)
-            if not ok:
+            if not ok and self.__useFallBack:
                 fp = os.path.join(dirPath, fU.getFileName(urlTargetInterProParentFB))
                 ok = fU.get(urlTargetInterProParentFB, fp)
                 logger.info("Fetch data fallback fetch status is %r", ok)

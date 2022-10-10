@@ -43,7 +43,7 @@ class InterProProviderTests(unittest.TestCase):
         logger.info("Completed %s at %s (%.4f seconds)\n", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
 
     def testInterProCache(self):
-        ipP = InterProProvider(cachePath=self.__cachePath, useCache=False)
+        ipP = InterProProvider(cachePath=self.__cachePath, useCache=False, useFallBack=False)
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
         # IPR041653	Repeat	Importin repeat 4
         idCode = "IPR041653"
@@ -93,7 +93,7 @@ class InterProProviderTests(unittest.TestCase):
 def interProCacheSuite():
     suiteSelect = unittest.TestSuite()
     suiteSelect.addTest(InterProProviderTests("testInterProCache"))
-    suiteSelect.addTest(InterProProviderTests("testInterProCacheFallBack"))
+    # suiteSelect.addTest(InterProProviderTests("testInterProCacheFallBack"))
     return suiteSelect
 
 
