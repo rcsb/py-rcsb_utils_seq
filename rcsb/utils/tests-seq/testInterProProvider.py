@@ -93,7 +93,7 @@ class InterProProviderTests(unittest.TestCase):
 def interProCacheSuite():
     suiteSelect = unittest.TestSuite()
     suiteSelect.addTest(InterProProviderTests("testInterProCache"))
-    # suiteSelect.addTest(InterProProviderTests("testInterProCacheFallBack"))
+    suiteSelect.addTest(InterProProviderTests("testInterProCacheFallBack"))
     return suiteSelect
 
 
