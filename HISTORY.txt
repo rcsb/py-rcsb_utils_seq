@@ -59,3 +59,4 @@
   25-Jul-2022    V0.66 Adjust UniProtUtils to temporarily use the legacy baseUrl (legacy.uniprot.org) for API calls
    4-Oct-2022    V0.67 Update UniProtUtils code to use new UniProt API
   10-Oct-2022    V0.68 Update URLs to InterPro data, and add better error catching for InterPro provider tests
+  11-Oct-2022    V0.69 Only use secondary service site (EBI) for bulk UniProt XML requests

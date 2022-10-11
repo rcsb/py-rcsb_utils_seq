@@ -8,6 +8,7 @@
 #  6-Dec-2019 jdw Add method rebuildMatchResultIndex() to refresh match index from existing reference store
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
 #  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
+# 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
 #
 ##
 
@@ -370,11 +371,18 @@ class UniProtUtils(object):
 
     def __doRequest(self, idList, retryAltApi=True, usePrimary=True):
         ok = False
-        if usePrimary:
-            ret, retCode = self.__doRequestPrimary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
         #
-        if retryAltApi and not ok:
+        if usePrimary:
+            # NOTE: As of at least October 2022, fetching bulk XML text from UniProt directly is not reliable (often returns only a partial XML)
+            #       In order to continue using UniProt as primary source, will need to complete the UniProtJsonReader class and methods for reading
+            #       and parsing paginated JSON responses instead.
+            logger.info("Will NOT use primary - will use secondary service site instead...")
+            #
+            # ret, retCode = self.__doRequestPrimary(idList)
+            # ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+        #
+        # if retryAltApi and not ok:
+        if retryAltApi:
             logger.info("Retrying using secondary service site")
             ret, retCode = self.__doRequestSecondary(idList)
             ok = retCode in [200] and ret and len(ret) > 0
