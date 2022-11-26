@@ -374,14 +374,11 @@ class UniProtUtils(object):
         ok = False
         #
         if usePrimary:
-            # NOTE: As of at least October 2022, fetching bulk XML text from UniProt directly is not reliable (often returns only a partial XML)
-            #       In order to continue using UniProt as primary source, will need to complete the UniProtJsonReader class and methods for reading
-            #       and parsing paginated JSON responses instead.
-            # logger.info("Will NOT use primary - will use secondary service site instead...")
-            #
             ret, retCode = self.__doRequestPrimary(idList)
             ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
-            logger.info("PRIMARY %r %r %r %r", ok, retCode, ret[0:100], ret[-100:])
+            # logger.debug("PRIMARY %r %r", ok, retCode)
+            # if ret is not None:
+            #     logger.debug("PRIMARY RESPONSE %r %r", ret[0:100], ret[-100:])
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
@@ -395,7 +392,7 @@ class UniProtUtils(object):
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
         idListStr = "%2C%20".join(idList)
-        endPoint = "uniprotkb/accessions?accessions" + idListStr
+        endPoint = "uniprotkb/accessions?accessions=" + idListStr
         hD = {"Accept": "application/xml"}
         ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         if respCode != 200:
