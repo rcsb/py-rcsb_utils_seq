@@ -109,6 +109,7 @@ class UniProtUtils(object):
             dict: {unpId: {'key':val, ... }} dictionary of UniProt reference data
             dict: {unpId: {match details}, ...} } dictionary of match details
         """
+        maxChunkSize = 1  # override setting to ensure no errors during streamed response
         try:
             if self.__saveText:
                 self.__dataList = []
@@ -134,7 +135,7 @@ class UniProtUtils(object):
                 logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
-                if not ok:
+                if not ok and xmlText is not None:
                     logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
                 logger.debug("Status %r", ok)
                 #
@@ -376,21 +377,27 @@ class UniProtUtils(object):
             # NOTE: As of at least October 2022, fetching bulk XML text from UniProt directly is not reliable (often returns only a partial XML)
             #       In order to continue using UniProt as primary source, will need to complete the UniProtJsonReader class and methods for reading
             #       and parsing paginated JSON responses instead.
-            logger.info("Will NOT use primary - will use secondary service site instead...")
+            # logger.info("Will NOT use primary - will use secondary service site instead...")
             #
-            # ret, retCode = self.__doRequestPrimary(idList)
-            # ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+            # while not ok:
+            ret, retCode = self.__doRequestPrimary(idList)
+            ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+            logger.info("PRIMARY %r %r %r %r", ok, retCode, ret[0:100], ret[-100:])
         #
+        if not ok:
+            ret = None
         # if retryAltApi and not ok:
-        if retryAltApi:
-            logger.info("Retrying using secondary service site")
-            ret, retCode = self.__doRequestSecondary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0
-        #
+        # # if retryAltApi:
+        #     logger.info("Retrying using secondary service site")
+        #     ret, retCode = self.__doRequestSecondary(idList)
+        #     ok = retCode in [200] and ret and len(ret) > 0
+        # #
         return ok, ret
 
     def __doRequestPrimary(self, idList):
         """ """
+        # ok = False
+        # while not ok:
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
         endPoint = "idmapping/run"
@@ -407,7 +414,14 @@ class UniProtUtils(object):
             return None, retCode
         endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
         hD = {"Accept": "application/xml"}
-        return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
+        ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
+        # ok = respCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+        # if not ok:
+        #     print(idList)
+        #     # Re-order the list to force UniProt to create a new job
+        #     idList.append(idList.pop(idList.index(idList[0])))
+        #     print(idList)
+        return ret, respCode
 
     def __doRequestSecondary(self, idList):
         baseUrl = self.__urlSecondary
@@ -418,6 +432,8 @@ class UniProtUtils(object):
         pD["size"] = "-1"
         pD["accession"] = ",".join(idList)
         ureq = UrlRequestUtil()
+        print("SECONDARY REQUEST")
+        print(baseUrl, endPoint, pD, hL)
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
 
     def __processIdList(self, idList):
@@ -561,7 +577,7 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return rL, None
 
-    def __checkIdMappingResultsReady(self, jobId, checkInterval=10, timeout=600):
+    def __checkIdMappingResultsReady(self, jobId, checkInterval=1, timeout=600):
         """Check status of UniProt REST request job.
 
         Args:
