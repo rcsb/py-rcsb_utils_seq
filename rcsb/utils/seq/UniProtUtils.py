@@ -9,6 +9,7 @@
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
 #  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 # 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
+# 26-Nov-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
 #
 ##
 
@@ -134,7 +135,7 @@ class UniProtUtils(object):
                 logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
-                if not ok:
+                if not ok and xmlText is not None:
                     logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
                 logger.debug("Status %r", ok)
                 #
@@ -373,16 +374,14 @@ class UniProtUtils(object):
         ok = False
         #
         if usePrimary:
-            # NOTE: As of at least October 2022, fetching bulk XML text from UniProt directly is not reliable (often returns only a partial XML)
-            #       In order to continue using UniProt as primary source, will need to complete the UniProtJsonReader class and methods for reading
-            #       and parsing paginated JSON responses instead.
-            logger.info("Will NOT use primary - will use secondary service site instead...")
-            #
-            # ret, retCode = self.__doRequestPrimary(idList)
-            # ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+            ret, retCode = self.__doRequestPrimary(idList)
+            if retCode in [200] and ret is not None:
+                ok = len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+            # logger.debug("PRIMARY %r %r", ok, retCode)
+            # if ret is not None:
+            #     logger.debug("PRIMARY RESPONSE %r %r", ret[0:100], ret[-100:])
         #
-        # if retryAltApi and not ok:
-        if retryAltApi:
+        if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
             ret, retCode = self.__doRequestSecondary(idList)
             ok = retCode in [200] and ret and len(ret) > 0
@@ -390,6 +389,30 @@ class UniProtUtils(object):
         return ok, ret
 
     def __doRequestPrimary(self, idList):
+        """ """
+        baseUrl = self.__urlPrimary
+        ureq = UrlRequestUtil()
+        idListStr = "%2C%20".join(idList)
+        endPoint = "uniprotkb/accessions?accessions=" + idListStr
+        hD = {"Accept": "application/xml"}
+        ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
+        if respCode != 200:
+            logger.error("Primary request failed with retCode %r", respCode)
+
+        return ret, respCode
+
+    def __doRequestSecondary(self, idList):
+        baseUrl = self.__urlSecondary
+        endPoint = "proteins/api/proteins"
+        #
+        hL = [("Accept", "application/xml")]
+        pD = {}
+        pD["size"] = "-1"
+        pD["accession"] = ",".join(idList)
+        ureq = UrlRequestUtil()
+        return ureq.get(baseUrl, endPoint, pD, headers=hL)
+
+    def __doMappingRequest(self, idList):
         """ """
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
@@ -407,18 +430,9 @@ class UniProtUtils(object):
             return None, retCode
         endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
         hD = {"Accept": "application/xml"}
-        return ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
+        ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
 
-    def __doRequestSecondary(self, idList):
-        baseUrl = self.__urlSecondary
-        endPoint = "proteins/api/proteins"
-        #
-        hL = [("Accept", "application/xml")]
-        pD = {}
-        pD["size"] = "-1"
-        pD["accession"] = ",".join(idList)
-        ureq = UrlRequestUtil()
-        return ureq.get(baseUrl, endPoint, pD, headers=hL)
+        return ret, respCode
 
     def __processIdList(self, idList):
         """
@@ -561,7 +575,7 @@ class UniProtUtils(object):
             logger.exception("Failing with %s", str(e))
         return rL, None
 
-    def __checkIdMappingResultsReady(self, jobId, checkInterval=10, timeout=600):
+    def __checkIdMappingResultsReady(self, jobId, checkInterval=1, timeout=600):
         """Check status of UniProt REST request job.
 
         Args:

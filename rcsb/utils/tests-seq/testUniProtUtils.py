@@ -267,13 +267,18 @@ class UniProtUtilsTests(unittest.TestCase):
             logger.exception("Failing with %s", str(e))
             self.fail()
 
-    def testBatchFetchFailureMode1(self):
-        """Test batch entry fetch (failure mode)"""
+    def testBatchFetchSecondary(self):
+        """Test batch entry fetch (secondary service)"""
         try:
-            fobj = UniProtUtils(saveText=False, urlPrimary="http://none.none.none")
+            fobj = UniProtUtils(saveText=False)
             idList = self.__unpIdListLong[:100]
             logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
-            retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
+            try:
+                retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=False, retryAltApi=self.__retryAltApi)
+            except Exception as e:
+                logger.warning("Fallback secondary service failed with %r", e)
+                logger.warning("Retrying with primary service")
+                retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=True, retryAltApi=False)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
