@@ -9,7 +9,7 @@
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
 #  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 # 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
-# 26-Novt-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
+# 26-Nov-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
 #
 ##
 
@@ -375,7 +375,8 @@ class UniProtUtils(object):
         #
         if usePrimary:
             ret, retCode = self.__doRequestPrimary(idList)
-            ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
+            if retCode in [200] and ret is not None:
+                ok = len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
             # logger.debug("PRIMARY %r %r", ok, retCode)
             # if ret is not None:
             #     logger.debug("PRIMARY RESPONSE %r %r", ret[0:100], ret[-100:])
