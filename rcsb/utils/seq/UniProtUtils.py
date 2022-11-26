@@ -9,6 +9,7 @@
 # 25-Jul-2022 dwp Adjust UniProt API calls to temporarily use the legacy baseUrl, legacy.uniprot.org
 #  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 # 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
+# 26-Novt-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
 #
 ##
 
@@ -109,7 +110,6 @@ class UniProtUtils(object):
             dict: {unpId: {'key':val, ... }} dictionary of UniProt reference data
             dict: {unpId: {match details}, ...} } dictionary of match details
         """
-        # maxChunkSize = 100  # override setting to ensure no errors during streamed response
         try:
             if self.__saveText:
                 self.__dataList = []
@@ -130,7 +130,6 @@ class UniProtUtils(object):
             # numLists = len(searchIdList) / maxChunkSize + 1
             # numLists = len(subLists)
 
-            # failIdList = []
             for ii, subList in enumerate(subLists):
                 logger.debug("Fetching subList %r", subList)
                 logger.debug("Starting fetching for sublist %d", ii + 1)
@@ -138,8 +137,6 @@ class UniProtUtils(object):
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
                 if not ok and xmlText is not None:
                     logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
-                # if not ok:
-                    # failIdList.extend(subList)
                 logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
@@ -382,54 +379,28 @@ class UniProtUtils(object):
             #       and parsing paginated JSON responses instead.
             # logger.info("Will NOT use primary - will use secondary service site instead...")
             #
-            # while not ok:
             ret, retCode = self.__doRequestPrimary(idList)
             ok = retCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
             logger.info("PRIMARY %r %r %r %r", ok, retCode, ret[0:100], ret[-100:])
         #
-        if not ok:
-            ret = None
-        # if retryAltApi and not ok:
-        # # if retryAltApi:
-        #     logger.info("Retrying using secondary service site")
-        #     ret, retCode = self.__doRequestSecondary(idList)
-        #     ok = retCode in [200] and ret and len(ret) > 0
-        # #
+        if retryAltApi and not ok:
+            logger.info("Retrying using secondary service site")
+            ret, retCode = self.__doRequestSecondary(idList)
+            ok = retCode in [200] and ret and len(ret) > 0
+        #
         return ok, ret
 
     def __doRequestPrimary(self, idList):
         """ """
-        # ok = False
-        # while not ok:
-        # curl -X GET "https://rest.uniprot.org/uniprotkb/accessions?accessions=Q12748%2C%20Q74085%2C%20O15031%2C%20O07177%2C%20Q966D4" -H "accept: application/json"
-        # idList = ['Q12748', 'Q74085', 'O15031', 'O07177', 'Q966D4']
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
         idListStr = "%2C%20".join(idList)
+        endPoint = "uniprotkb/accessions?accessions" + idListStr
         hD = {"Accept": "application/xml"}
-        ret, respCode = ureq.getUnWrapped(baseUrl, "uniprotkb/accessions?accessions=" + idListStr, paramD=None, headers=hD, overwriteUserAgent=False)
+        ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
+        if respCode != 200:
+            logger.error("Primary request failed with retCode %r", respCode)
 
-        # endPoint = "idmapping/run"
-        # pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
-        # rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
-        # if retCode != 200:
-        #     logger.error("Primary request failed with retCode %r", retCode)
-        #     return None, retCode
-        # jobId = rspJson["jobId"]
-        # logger.debug("jobId %r", jobId)
-        # ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
-        # if not ok:
-        #     logger.error("Job failed to run or never finished.")
-        #     return None, retCode
-        # endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
-        # hD = {"Accept": "application/xml"}
-        # ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
-        # ok = respCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
-        # if not ok:
-        #     print(idList)
-        #     # Re-order the list to force UniProt to create a new job
-        #     idList.append(idList.pop(idList.index(idList[0])))
-        #     print(idList)
         return ret, respCode
 
     def __doRequestSecondary(self, idList):
@@ -441,9 +412,29 @@ class UniProtUtils(object):
         pD["size"] = "-1"
         pD["accession"] = ",".join(idList)
         ureq = UrlRequestUtil()
-        print("SECONDARY REQUEST")
-        print(baseUrl, endPoint, pD, hL)
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
+
+    def __doMappingRequest(self, idList):
+        """ """
+        baseUrl = self.__urlPrimary
+        ureq = UrlRequestUtil()
+        endPoint = "idmapping/run"
+        pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
+        rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
+        if retCode != 200:
+            logger.error("Primary request failed with retCode %r", retCode)
+            return None, retCode
+        jobId = rspJson["jobId"]
+        logger.debug("jobId %r", jobId)
+        ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+        if not ok:
+            logger.error("Job failed to run or never finished.")
+            return None, retCode
+        endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
+        hD = {"Accept": "application/xml"}
+        ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
+
+        return ret, respCode
 
     def __processIdList(self, idList):
         """
