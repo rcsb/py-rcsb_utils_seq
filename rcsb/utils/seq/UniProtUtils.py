@@ -109,7 +109,7 @@ class UniProtUtils(object):
             dict: {unpId: {'key':val, ... }} dictionary of UniProt reference data
             dict: {unpId: {match details}, ...} } dictionary of match details
         """
-        maxChunkSize = 1  # override setting to ensure no errors during streamed response
+        # maxChunkSize = 100  # override setting to ensure no errors during streamed response
         try:
             if self.__saveText:
                 self.__dataList = []
@@ -130,6 +130,7 @@ class UniProtUtils(object):
             # numLists = len(searchIdList) / maxChunkSize + 1
             # numLists = len(subLists)
 
+            # failIdList = []
             for ii, subList in enumerate(subLists):
                 logger.debug("Fetching subList %r", subList)
                 logger.debug("Starting fetching for sublist %d", ii + 1)
@@ -137,6 +138,8 @@ class UniProtUtils(object):
                 ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
                 if not ok and xmlText is not None:
                     logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
+                # if not ok:
+                    # failIdList.extend(subList)
                 logger.debug("Status %r", ok)
                 #
                 # Filter possible simple text error messages from the failed queries.
@@ -398,23 +401,29 @@ class UniProtUtils(object):
         """ """
         # ok = False
         # while not ok:
+        # curl -X GET "https://rest.uniprot.org/uniprotkb/accessions?accessions=Q12748%2C%20Q74085%2C%20O15031%2C%20O07177%2C%20Q966D4" -H "accept: application/json"
+        # idList = ['Q12748', 'Q74085', 'O15031', 'O07177', 'Q966D4']
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
-        endPoint = "idmapping/run"
-        pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
-        rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
-        if retCode != 200:
-            logger.error("Primary request failed with retCode %r", retCode)
-            return None, retCode
-        jobId = rspJson["jobId"]
-        logger.debug("jobId %r", jobId)
-        ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
-        if not ok:
-            logger.error("Job failed to run or never finished.")
-            return None, retCode
-        endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
+        idListStr = "%2C%20".join(idList)
         hD = {"Accept": "application/xml"}
-        ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
+        ret, respCode = ureq.getUnWrapped(baseUrl, "uniprotkb/accessions?accessions=" + idListStr, paramD=None, headers=hD, overwriteUserAgent=False)
+
+        # endPoint = "idmapping/run"
+        # pD = {"from": "UniProtKB_AC-ID", "to": "UniProtKB", "ids": ",".join(idList)}
+        # rspJson, retCode = ureq.post(baseUrl, endPoint, pD, headers=[], returnContentType="JSON")
+        # if retCode != 200:
+        #     logger.error("Primary request failed with retCode %r", retCode)
+        #     return None, retCode
+        # jobId = rspJson["jobId"]
+        # logger.debug("jobId %r", jobId)
+        # ok = self.__checkIdMappingResultsReady(jobId, timeout=600)
+        # if not ok:
+        #     logger.error("Job failed to run or never finished.")
+        #     return None, retCode
+        # endPointResults = os.path.join("idmapping/uniprotkb/results", jobId)
+        # hD = {"Accept": "application/xml"}
+        # ret, respCode = ureq.getUnWrapped(baseUrl, endPointResults, paramD=None, headers=hD, overwriteUserAgent=False)
         # ok = respCode in [200] and ret and len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
         # if not ok:
         #     print(idList)
