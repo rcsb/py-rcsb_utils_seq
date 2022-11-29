@@ -395,9 +395,9 @@ class UniProtUtilsTests(unittest.TestCase):
 
 def suiteFetchTests():
     suiteSelect = unittest.TestSuite()
-    # suiteSelect.addTest(UniProtUtilsTests("testLookup"))
-    # suiteSelect.addTest(UniProtUtilsTests("testFetchIds"))
-    # suiteSelect.addTest(UniProtUtilsTests("testFetchSequenceList"))
+    suiteSelect.addTest(UniProtUtilsTests("testLookup"))
+    suiteSelect.addTest(UniProtUtilsTests("testFetchIds"))
+    suiteSelect.addTest(UniProtUtilsTests("testFetchSequenceList"))
     suiteSelect.addTest(UniProtUtilsTests("testBatchFetch"))
     #
     return suiteSelect
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     mySuite = suiteFetchTests()
     unittest.TextTestRunner(verbosity=2).run(mySuite)
     #
-    # mySuite = suiteFetchVariantTests()
-    # unittest.TextTestRunner(verbosity=2).run(mySuite)
+    mySuite = suiteFetchVariantTests()
+    unittest.TextTestRunner(verbosity=2).run(mySuite)
 #
 #
