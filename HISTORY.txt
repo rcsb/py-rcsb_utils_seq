@@ -61,3 +61,4 @@
   10-Oct-2022    V0.68 Update URLs to InterPro data, and add better error catching for InterPro provider tests
   11-Oct-2022    V0.69 Only use secondary service site (EBI) for bulk UniProt XML requests
   26-Nov-2022    V0.70 Fix UniProtUtils primary API fetching method
+  28-Nov-2022    V0.71 Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)

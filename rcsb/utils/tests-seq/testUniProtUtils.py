@@ -45,6 +45,7 @@ class UniProtUtilsTests(unittest.TestCase):
         self.__usePrimary = True
         self.__retryAltApi = True
         #
+        self.__unpIdListMix = ["P20937", "P21877", "P42284-1", "P42284-3", "P29994-2", "P21877"]  # Contains both active and obsoleted entries
         self.__unpIdList1 = ["P20937", "P22868", "P23832", "P21877"]
         self.__unpIdList3 = ["P20937", "P22868", "P23832"]
         self.__unpIdList2 = [
@@ -242,12 +243,12 @@ class UniProtUtilsTests(unittest.TestCase):
         """Test batch entry fetch"""
         try:
             fobj = UniProtUtils(saveText=False)
-            idList = self.__unpIdListLong[:100]
+            idList = self.__unpIdListMix + self.__unpIdListLong[:100]
             logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
             retD, matchD = fobj.fetchList(idList, usePrimary=self.__usePrimary, retryAltApi=self.__retryAltApi)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
-            logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
+            logger.info("%d %d %d", numPrimary, numSecondary, numNone)
             sumRet = numPrimary + numSecondary + numNone
             logger.info("sumRet returned %d", sumRet)
             self.assertGreaterEqual(sumRet, len(idList) - 1)

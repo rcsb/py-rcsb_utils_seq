@@ -10,6 +10,7 @@
 #  4-Oct-2022 dwp Update code to use new UniProt API (much of the code from: https://www.uniprot.org/help/id_mapping)
 # 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
 # 26-Nov-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
+# 28-Nov-2022 dwp Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)
 #
 ##
 
@@ -131,10 +132,11 @@ class UniProtUtils(object):
             # numLists = len(subLists)
 
             for ii, subList in enumerate(subLists):
+                missingIds, demergedIdList = [], []
                 logger.debug("Fetching subList %r", subList)
                 logger.debug("Starting fetching for sublist %d", ii + 1)
                 #
-                ok, xmlText = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
+                ok, xmlText, missingIds, demergedIdList = self.__doRequest(subList, usePrimary=usePrimary, retryAltApi=retryAltApi)
                 if not ok and xmlText is not None:
                     logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
                 logger.debug("Status %r", ok)
@@ -151,7 +153,29 @@ class UniProtUtils(object):
                     if self.__saveText:
                         self.__dataList.append(xmlText)
                 else:
-                    logger.info("Fetch %r status %r text %r", subList, ok, xmlText)
+                    logger.info("Fetch %r status %r text %r missingIds %r demergedIdList %r", subList, ok, xmlText, missingIds, demergedIdList)
+
+                # Re-attempt fetch for missingIds (by searching for corresponding demergedIdList -- i.e., secondary accession ids)
+                if len(demergedIdList) > 0:
+                    logger.info("Re-fetching missingIds %r using demergedIdList %r", missingIds, demergedIdList)
+                    ok, xmlText, missingIds2, demergedIdList2 = self.__doRequest(demergedIdList, usePrimary=usePrimary, retryAltApi=retryAltApi)
+                    if not ok and xmlText is not None:
+                        logger.error("Failing request with status %r, len(xmlText) %r, xmlText[-100:] %r", ok, len(xmlText), xmlText[-100:])
+                    logger.debug("Status %r", ok)
+                    #
+                    # Filter possible simple text error messages from the failed queries.
+                    #
+                    if (xmlText is not None) and not xmlText.startswith("ERROR"):
+                        tD = self.__parseText(xmlText, variantD)
+                        if tD:
+                            referenceD.update(tD)
+                        else:
+                            logger.error("Status %r. Bad xml text. First 100 characters: %r; Last 100 characters: %r ", ok, xmlText[:100], xmlText[-100:])
+                            raise ValueError("Bad xml text")
+                        if self.__saveText:
+                            self.__dataList.append(xmlText)
+                    else:
+                        logger.info("Fetch %r status %r text %r missingIds %r demergedIdList %r", subList, ok, xmlText, missingIds2, demergedIdList2)
 
             matchD = self.rebuildMatchResultIndex(idList, referenceD)
 
@@ -372,21 +396,19 @@ class UniProtUtils(object):
 
     def __doRequest(self, idList, retryAltApi=True, usePrimary=True):
         ok = False
+        missingIds, demergedIdList = [], []
         #
         if usePrimary:
-            ret, retCode = self.__doRequestPrimary(idList)
+            ret, retCode, missingIds, demergedIdList = self.__doRequestPrimary(idList)
             if retCode in [200] and ret is not None:
                 ok = len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
-            # logger.debug("PRIMARY %r %r", ok, retCode)
-            # if ret is not None:
-            #     logger.debug("PRIMARY RESPONSE %r %r", ret[0:100], ret[-100:])
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
             ret, retCode = self.__doRequestSecondary(idList)
             ok = retCode in [200] and ret and len(ret) > 0
         #
-        return ok, ret
+        return ok, ret, missingIds, demergedIdList
 
     def __doRequestPrimary(self, idList):
         """ """
@@ -398,8 +420,23 @@ class UniProtUtils(object):
         ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         if respCode != 200:
             logger.error("Primary request failed with retCode %r", respCode)
+        #
+        missingIds, demergedIdList = [], []
+        for accId in idList:
+            if "<accession>" + accId + "</accession>" not in ret:
+                missingIds.append(accId)
+                try:
+                    endpoint2 = os.path.join("uniprotkb", accId)
+                    ret2, respCode2 = ureq.getUnWrapped(baseUrl, endpoint2, paramD=None, headers={"Accept": "application/json"}, overwriteUserAgent=False, returnContentType="JSON")
+                    if respCode2 == 200:
+                        if "inactiveReason" in ret2:
+                            demergedIds = ret2["inactiveReason"].get("mergeDemergeTo", [])
+                            if len(demergedIds) > 0:
+                                demergedIdList.extend(ret2["inactiveReason"]["mergeDemergeTo"])
+                except Exception as e:
+                    logger.exception("Failing to collect demergedIdList with message %s", str(e))
 
-        return ret, respCode
+        return ret, respCode, missingIds, demergedIdList
 
     def __doRequestSecondary(self, idList):
         baseUrl = self.__urlSecondary
