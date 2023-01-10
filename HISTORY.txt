@@ -62,3 +62,4 @@
   11-Oct-2022    V0.69 Only use secondary service site (EBI) for bulk UniProt XML requests
   26-Nov-2022    V0.70 Fix UniProtUtils primary API fetching method
   28-Nov-2022    V0.71 Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)
+   9-Jan-2023    V0.72 Configuration changes to support tox 4
