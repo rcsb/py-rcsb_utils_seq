@@ -634,6 +634,7 @@ class UniProtUtils(object):
                         logger.info("Retrying in %r s", checkInterval)
                         time.sleep(checkInterval)
                     else:
+                        logger.exception("Failing with jobStatus %s", rspJson["jobStatus"])
                         raise Exception(rspJson["jobStatus"])
                 else:
                     response = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
