@@ -11,6 +11,7 @@
 # 11-Oct-2022 dwp Only use secondary service site for bulk XML fetchList requests
 # 26-Nov-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
 # 28-Nov-2022 dwp Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)
+# 23-Feb-2023 dwp Fix primary service fetching method to handle failures due to one or more invalid UniProt IDs
 #
 ##
 
@@ -412,16 +413,30 @@ class UniProtUtils(object):
 
     def __doRequestPrimary(self, idList):
         """ """
+        missingIds, demergedIdList = [], []
         baseUrl = self.__urlPrimary
         ureq = UrlRequestUtil()
         idListStr = "%2C%20".join(idList)
         endPoint = "uniprotkb/accessions?accessions=" + idListStr
         hD = {"Accept": "application/xml"}
+        logger.debug("Performing request with baseUrl, endpoint, and hD:  %r  %r  %r", baseUrl, endPoint, hD)
         ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         if respCode != 200:
             logger.error("Primary request failed with retCode %r", respCode)
+            res = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
+            if res.status_code == 400:
+                if "It should be a valid UniProtKB accession" in res.json()["messages"][0]:
+                    for msg in res.json()["messages"]:
+                        badCode = msg.split("has invalid format")[0].split("Accession")[1].split("'")[1].strip()
+                        missingIds.append(badCode)
+                        idList.pop(idList.index(badCode))
+                    idListStr = "%2C%20".join(idList)
+                    endPoint = "uniprotkb/accessions?accessions=" + idListStr
+                    logger.info("Retrying without badCodes %r", missingIds)
+                    res = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
+            if res.status_code == 200:
+                ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         #
-        missingIds, demergedIdList = [], []
         for accId in idList:
             if "<accession>" + accId + "</accession>" not in ret:
                 missingIds.append(accId)
