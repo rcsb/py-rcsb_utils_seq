@@ -423,18 +423,17 @@ class UniProtUtils(object):
         ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         if respCode != 200:
             logger.error("Primary request failed with retCode %r", respCode)
-            res = requests.get(os.path.join(baseUrl, endPoint))
-            while res.status_code == 400:
+            res = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
+            if res.status_code == 400:
                 if "It should be a valid UniProtKB accession" in res.json()["messages"][0]:
-                    badCode = res.json()["messages"][0].split("has invalid format")[0].split("Accession")[1].split("'")[1].strip()
-                    missingIds.append(badCode)
-                    idList.pop(idList.index(badCode))
+                    for msg in res.json()["messages"]:
+                        badCode = msg.split("has invalid format")[0].split("Accession")[1].split("'")[1].strip()
+                        missingIds.append(badCode)
+                        idList.pop(idList.index(badCode))
                     idListStr = "%2C%20".join(idList)
                     endPoint = "uniprotkb/accessions?accessions=" + idListStr
-                    logger.info("Retrying without badCode %r", badCode)
-                    res = requests.get(os.path.join(baseUrl, endPoint))
-                else:
-                    break
+                    logger.info("Retrying without badCodes %r", missingIds)
+                    res = requests.get(os.path.join(baseUrl, endPoint), timeout=600)
             if res.status_code == 200:
                 ret, respCode = ureq.getUnWrapped(baseUrl, endPoint, paramD=None, headers=hD, overwriteUserAgent=False)
         #
