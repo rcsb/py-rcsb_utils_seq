@@ -64,3 +64,4 @@
   28-Nov-2022    V0.71 Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)
    9-Jan-2023    V0.72 Configuration changes to support tox 4
    6-Feb-2023    V0.73 Resolve pylint issues
+  23-Feb-2023    V0.74 Fix UniProtUtils primary fetching service to hanle cases with invalid UniProt IDs
