@@ -12,7 +12,6 @@
 # 26-Nov-2022 dwp Fix primary service fetching method (use accessions endpoint, not id_mapping)
 # 28-Nov-2022 dwp Add functionality to search primary service using secondary accession IDs (in case of obsoleted IDs)
 # 23-Feb-2023 dwp Fix primary service fetching method to handle failures due to one or more invalid UniProt IDs
-#  9-Mar-2023 dwp Lower default maxChunkSize to 10 (UniProt API having trouble streaming XML responses)
 #
 ##
 
@@ -97,7 +96,7 @@ class UniProtUtils(object):
         }
         #
 
-    def fetchList(self, idList, maxChunkSize=10, usePrimary=True, retryAltApi=True):
+    def fetchList(self, idList, maxChunkSize=100, usePrimary=True, retryAltApi=True):
         """Execute a fetch query for the input id list. The input list is filtered
            for sequence variants (e.g. ids with appended '-#').
 
@@ -121,7 +120,6 @@ class UniProtUtils(object):
             #
             searchIdList, variantD = self.__processIdList(idList)
 
-            logger.info("Running fetchList for idList length %d with maxChunkSize %d usePrimary %r retryAltApi %r", len(idList), maxChunkSize, usePrimary, retryAltApi)
             logger.debug("input id list %s", idList)
             logger.debug("search   list %s", searchIdList)
             logger.debug("variants      %s", variantD.items())
@@ -400,19 +398,11 @@ class UniProtUtils(object):
     def __doRequest(self, idList, retryAltApi=True, usePrimary=True):
         ok = False
         missingIds, demergedIdList = [], []
-        primaryCounter = 0
         #
         if usePrimary:
-            while not ok and primaryCounter < 5:
-                primaryCounter += 1
-                logger.info("Performing primary request for idList length %d (attempt %d)", len(idList), primaryCounter)
-                ret, retCode, missingIds, demergedIdList = self.__doRequestPrimary(idList)
-                if retCode in [200] and ret is not None:
-                    ok = len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
-                    logger.info("  success %r", ok)
-                    if not ok:
-                        logger.info("Beginning of response: %r", ret[0:100])
-                        logger.info("      End of response: %r", ret[-100:])
+            ret, retCode, missingIds, demergedIdList = self.__doRequestPrimary(idList)
+            if retCode in [200] and ret is not None:
+                ok = len(ret) > 0 and "ERROR" not in ret[0:100].upper() and "ERROR" not in ret[-100:].upper()
         #
         if retryAltApi and not ok:
             logger.info("Retrying using secondary service site")
@@ -472,7 +462,6 @@ class UniProtUtils(object):
         pD["size"] = "-1"
         pD["accession"] = ",".join(idList)
         ureq = UrlRequestUtil()
-        logger.info("doRequestSecondary:  %r  %r  %r  %r", baseUrl, endPoint, pD, hL)
         return ureq.get(baseUrl, endPoint, pD, headers=hL)
 
     def __doMappingRequest(self, idList):
