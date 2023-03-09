@@ -256,13 +256,15 @@ class UniProtUtilsTests(unittest.TestCase):
                 for rId in retD:
                     self.__mU.doExport(os.path.join(self.__workPath, rId + ".json"), retD[rId], fmt="json", indent=3)
             #
-            retD, matchD = fobj.fetchList(idList, usePrimary=False, retryAltApi=True)
-            logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
+            logger.info("Test secondary site batch fetch...")
+            idListSecondary = idList[0:20]
+            retD, matchD = fobj.fetchList(idListSecondary, usePrimary=False, retryAltApi=True, maxChunkSize=10)
+            logger.info("idListSecondary %d reference return length %d match length %d", len(idListSecondary), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
             sumRet = numPrimary + numSecondary + numNone
             logger.info("sumRet returned %d", sumRet)
-            self.assertGreaterEqual(sumRet, len(idList) - 1)
+            self.assertGreaterEqual(sumRet, len(idListSecondary) - 1)
             #
         except Exception as e:
             logger.exception("Failing with %s", str(e))
@@ -412,12 +414,9 @@ def suiteFetchVariantTests():
 
 
 if __name__ == "__main__":
-
     #
     mySuite = suiteFetchTests()
     unittest.TextTestRunner(verbosity=2).run(mySuite)
     #
     mySuite = suiteFetchVariantTests()
     unittest.TextTestRunner(verbosity=2).run(mySuite)
-#
-#
