@@ -65,3 +65,4 @@
    9-Jan-2023    V0.72 Configuration changes to support tox 4
    6-Feb-2023    V0.73 Resolve pylint issues
   23-Feb-2023    V0.74 Fix UniProtUtils primary fetching service to handle cases with invalid UniProt IDs
+   9-Mar-2023    V0.75 Lower default maxChunkSize to 10 for UniProt requests (UniProt API having trouble streaming XML responses)
