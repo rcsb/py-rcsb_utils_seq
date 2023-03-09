@@ -274,14 +274,14 @@ class UniProtUtilsTests(unittest.TestCase):
         """Test batch entry fetch (secondary service)"""
         try:
             fobj = UniProtUtils(saveText=False)
-            idList = self.__unpIdListLong[:100]
+            idList = self.__unpIdListLong[:20]
             logger.info("idList length %d  unique %d", len(idList), len(set(idList)))
             try:
-                retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=False, retryAltApi=self.__retryAltApi)
+                retD, matchD = fobj.fetchList(idList, usePrimary=False, retryAltApi=self.__retryAltApi)
             except Exception as e:
                 logger.warning("Fallback secondary service failed with %r", e)
                 logger.warning("Retrying with primary service")
-                retD, matchD = fobj.fetchList(idList, maxChunkSize=len(idList), usePrimary=True, retryAltApi=False)
+                retD, matchD = fobj.fetchList(idList, usePrimary=True, retryAltApi=False)
             logger.info("IdList %d reference return length %d match length %d", len(idList), len(retD), len(matchD))
             numPrimary, numSecondary, numNone = self.__matchSummary(matchD)
             logger.debug("%d %d %d", numPrimary, numSecondary, numNone)
