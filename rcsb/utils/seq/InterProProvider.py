@@ -23,9 +23,9 @@ class InterProProvider(object):
     """Manage mappings of InterPro identifiers to description and parent/child relationships"""
 
     def __init__(self, **kwargs):
-        urlTargetInterPro = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current_release/entry.list")
+        urlTargetInterPro = kwargs.get("urlTargetInterPro", "https://ftp.ebi.ac.uk/pub/databases/interpro/current_release/entry.list")
         urlTargetInterProFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/entry.list"
-        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "ftp://ftp.ebi.ac.uk/pub/databases/interpro/current_release/ParentChildTreeFile.txt")
+        urlTargetInterProParent = kwargs.get("urlTargetInterPro", "https://ftp.ebi.ac.uk/pub/databases/interpro/current_release/ParentChildTreeFile.txt")
         urlTargetInterProParentFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/InterPro/ParentChildTreeFile.txt"
         cachePath = kwargs.get("cachePath", ".")
         dirPath = os.path.join(cachePath, "interPro")
