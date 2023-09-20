@@ -4,6 +4,7 @@
 #
 # Updates:
 #   26-May-2021 jdw Add methods to fetch and deliver Pfam-PDB mappings
+#   20-Sep-2023 dwp Use HTTPS instead of FTP for Pfam data
 ##
 
 import logging
@@ -21,7 +22,7 @@ class PfamProvider(StashableBase):
     """Manage an index of Pfam identifier to description mappings."""
 
     def __init__(self, **kwargs):
-        urlTargetPfam = kwargs.get("urlTargetPfam", "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.clans.tsv.gz")
+        urlTargetPfam = kwargs.get("urlTargetPfam", "https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.clans.tsv.gz")
         urlTargetPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/Pfam-A.clans.tsv.gz"
         self.__version = "34.0"
         dirName = "pfam"
@@ -33,7 +34,7 @@ class PfamProvider(StashableBase):
         self.__mU = MarshalUtil(workPath=dirPath)
         self.__pfamD = self.__rebuildCache(urlTargetPfam, urlTargetPfamFB, dirPath, useCache)
 
-        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/database_files/pdb_pfamA_reg.txt.gz")
+        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/database_files/pdb_pfamA_reg.txt.gz")
         urlTargetMapPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/pdb_pfamA_reg.txt.gz"
         self.__pfamMapD = self.__rebuildMappingCache(urlTargetMapPfam, urlTargetMapPfamFB, dirPath, useCache)
 

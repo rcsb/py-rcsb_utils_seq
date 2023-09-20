@@ -73,6 +73,9 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         uniqueUniprotBL = su.getEntryUniqueIdentifiers(su.getEntries(), idType="UNPID")
         self.assertEqual(len(uniqueUniprotAL), len(uniqueUniprotBL))
         #
+        saoLD = su.getLongestAlignments("2B7X", ["A", "B", "C", "D"])
+        logger.info("2B7X_1 alignments: %r", saoLD)
+        #
         if abbreviated == "PROD":
             iproIdL = su.getIdentifiers("102M", "A", "IPROID")
             self.assertEqual(len(iproIdL), 4)

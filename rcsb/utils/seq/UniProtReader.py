@@ -813,7 +813,7 @@ class UniProtJsonReader(object):
         else:
             newD.update({"taxonomy_evc": None})
 
-        eL = [dict(i) for i in self.__genDictExtract("evidenceCode", {"comments": resultsD["to"]["comments"], "features":resultsD["to"]["features"]}, [])]
+        eL = [dict(i) for i in self.__genDictExtract("evidenceCode", {"comments": resultsD["to"]["comments"], "features": resultsD["to"]["features"]}, [])]
         evidenceL = []
         for eD in eL:
             if eD not in evidenceL:
