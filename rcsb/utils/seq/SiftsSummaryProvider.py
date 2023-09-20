@@ -131,7 +131,7 @@ class SiftsSummaryProvider(StashableBase):
                 asymMaxAlignLengthD[entryId] = asaoLength
         #
         for seqAlignObj in seqAlignObjL:
-            retD.setdefault((seqAlignObj.getDbName(), seqAlignObj.getDbAccession()), []).append(seqAlignObj)        
+            retD.setdefault((seqAlignObj.getDbName(), seqAlignObj.getDbAccession()), []).append(seqAlignObj)
         return retD
 
     def getIdentifiers(self, entryId, authAsymId, idType=None):
