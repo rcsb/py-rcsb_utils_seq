@@ -66,5 +66,5 @@
    6-Feb-2023    V0.73 Resolve pylint issues
   23-Feb-2023    V0.74 Fix UniProtUtils primary fetching service to handle cases with invalid UniProt IDs
    9-Mar-2023    V0.75 Lower default maxChunkSize to 10 for UniProt requests (UniProt API having trouble streaming XML responses)
-  19-Sep-2023    V0.76 Use HTTP for InterPro downloads;
+  19-Sep-2023    V0.76 Use HTTP instead of FTP for InterPro and Pfam downloads;
                        RO-4033: Adjust logic used for processing and assigning sequence alignment details
