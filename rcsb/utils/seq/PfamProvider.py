@@ -77,7 +77,7 @@ class PfamProvider(StashableBase):
 
     def testCache(self):
         # Check length ...
-        logger.info("Length PfamD %d", len(self.__pfamD))
+        logger.info("Length pfamD %d pfamMapD %d", len(self.__pfamD), len(self.__pfamMapD))
         return (len(self.__pfamD) > 19000) and (len(self.__pfamMapD) > 150000)
 
     #
