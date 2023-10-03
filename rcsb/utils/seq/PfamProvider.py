@@ -5,12 +5,13 @@
 # Updates:
 #   26-May-2021 jdw Add methods to fetch and deliver Pfam-PDB mappings
 #   20-Sep-2023 dwp Use HTTPS instead of FTP for Pfam data
+#    3-Oct-2023 dwp Use new Pfam mapping file, pdbmap.gz, in place of pdb_pfamA_reg.txt.gz which is no longer updated/supported
 ##
 
 import logging
 import os
 import sys
-
+import re
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.io.StashableBase import StashableBase
@@ -34,8 +35,8 @@ class PfamProvider(StashableBase):
         self.__mU = MarshalUtil(workPath=dirPath)
         self.__pfamD = self.__rebuildCache(urlTargetPfam, urlTargetPfamFB, dirPath, useCache)
 
-        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/database_files/pdb_pfamA_reg.txt.gz")
-        urlTargetMapPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/pdb_pfamA_reg.txt.gz"
+        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "https://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/pdbmap.gz")
+        urlTargetMapPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/pdbmap.gz"
         self.__pfamMapD = self.__rebuildMappingCache(urlTargetMapPfam, urlTargetMapPfamFB, dirPath, useCache)
 
     def getVersion(self):
@@ -76,7 +77,7 @@ class PfamProvider(StashableBase):
 
     def testCache(self):
         # Check length ...
-        logger.info("Length PfamD %d", len(self.__pfamD))
+        logger.info("Length pfamD %d pfamMapD %d", len(self.__pfamD), len(self.__pfamMapD))
         return (len(self.__pfamD) > 19000) and (len(self.__pfamMapD) > 150000)
 
     #
@@ -162,13 +163,15 @@ class PfamProvider(StashableBase):
         rowL = self.__mU.doImport(filePath, fmt="tdd", rowFormat="list", **encodingD)
         for row in rowL:
             try:
-                pdbId = row[2].strip().upper()
-                pfamId = row[3].strip().upper()
-                authAsymId = row[5].strip()
-                authSeqBeg = int(row[6].strip())
-                insertBeg = row[7].strip() if row[7].strip() != "NULL" else None
-                authSeqEnd = int(row[8].strip())
-                insertEnd = row[9].strip() if row[9].strip() != "NULL" else None
+                pdbId = row[0].strip().strip(";").upper()
+                pfamId = row[4].strip().strip(";").upper()
+                authAsymId = row[1].strip().strip(";")
+                seqL = row[2].strip().strip(";").split("-")
+                seqBeg, seqEnd = seqL[0], seqL[1]  # these could contain insertion letters too, so need to parse once more next
+                authSeqBeg = int(re.search(r"\d+", seqBeg).group()) if re.search(r"\d+", seqBeg) else None
+                insertBeg = re.search(r"[A-Za-z]+", seqBeg).group() if re.search(r"[A-Za-z]+", seqBeg) else None
+                authSeqEnd = int(re.search(r"\d+", seqEnd).group()) if re.search(r"\d+", seqEnd) else None
+                insertEnd = re.search(r"[A-Za-z]+", seqEnd).group() if re.search(r"[A-Za-z]+", seqEnd) else None
                 pFamMapD.setdefault(pdbId, []).append(
                     {
                         "pfamId": pfamId,
