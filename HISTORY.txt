@@ -68,3 +68,4 @@
    9-Mar-2023    V0.75 Lower default maxChunkSize to 10 for UniProt requests (UniProt API having trouble streaming XML responses)
   19-Sep-2023    V0.76 Use HTTP instead of FTP for InterPro and Pfam downloads;
                        RO-4033: Adjust logic used for processing and assigning sequence alignment details
+   3-Oct-2023    V0.77 Update PfamProvider to use new Pfam mapping file
