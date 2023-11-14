@@ -80,7 +80,7 @@ class GlyGenProvider(StashableBase):
 
     def __reloadGlycans(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
-        version = 1.0
+        version = "1.0"
         logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
@@ -136,7 +136,7 @@ class GlyGenProvider(StashableBase):
 
     def __reloadGlycoproteins(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
-        version = 1.0
+        version = "1.0"
         logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
