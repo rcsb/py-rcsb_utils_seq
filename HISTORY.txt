@@ -69,3 +69,4 @@
   19-Sep-2023    V0.76 Use HTTP instead of FTP for InterPro and Pfam downloads;
                        RO-4033: Adjust logic used for processing and assigning sequence alignment details
    3-Oct-2023    V0.77 Update PfamProvider to use new Pfam mapping file
+  14-Nov-2023    V0.78 Add SPARQL functionality and version information to GlyGenProvider
