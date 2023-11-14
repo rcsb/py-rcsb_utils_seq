@@ -4,7 +4,8 @@
 #
 #  Updates:
 #  15-May-2022 dwp Update resource URL to new location
-#  14-Nov-2023 dwp Add functionality for fetching data via SPARQL; Add version information to cache file
+#  14-Nov-2023 dwp Update GlyGen data version and add version information to cache file;
+#                  Add functionality for fetching data via SPARQL
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -14,10 +15,10 @@
 import logging
 import os.path
 
+from SPARQLWrapper import SPARQLWrapper, JSON
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.io.StashableBase import StashableBase
-from SPARQLWrapper import SPARQLWrapper, JSON
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +80,7 @@ class GlyGenProvider(StashableBase):
 
     def __reloadGlycans(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
+        version = 1.0
         logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
@@ -98,9 +100,12 @@ class GlyGenProvider(StashableBase):
             ok = fU.get(endPoint, rawPath)
             logger.debug("Fetch GlyGen glycan data status %r", ok)
             #
-            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-            vL = self.__mU.doImport(versionEndPoint)
-            version = vL[0].split(" ")[0].split("v-")[-1]
+            try:
+                versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
+                vL = self.__mU.doImport(versionEndPoint)
+                version = vL[0].split(" ")[0].split("v-")[-1]
+            except Exception as e:
+                logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
             if not ok:
                 endPoint = os.path.join(fallbackUrl, "glycan_masterlist.csv")
@@ -131,6 +136,7 @@ class GlyGenProvider(StashableBase):
 
     def __reloadGlycoproteins(self, baseUrl, fallbackUrl, dirPath, useCache=True):
         gD = {}
+        version = 1.0
         logger.debug("Using dirPath %r", dirPath)
         self.__mU.mkdir(dirPath)
         #
@@ -142,9 +148,12 @@ class GlyGenProvider(StashableBase):
             logger.debug("GlyGen glycoprotein data length %d", len(gD))
         else:
             #
-            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-            vL = self.__mU.doImport(versionEndPoint)
-            version = vL[0].split(" ")[0].split("v-")[-1]
+            try:
+                versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
+                vL = self.__mU.doImport(versionEndPoint)
+                version = vL[0].split(" ")[0].split("v-")[-1]
+            except Exception as e:
+                logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
             for fn in [
                 "sarscov1_protein_masterlist.csv",
