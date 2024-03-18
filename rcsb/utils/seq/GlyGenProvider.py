@@ -218,8 +218,8 @@ class GlyGenProvider(StashableBase):
                 "hcv1a": "63746",
                 "human": "9606",
                 "mouse": "10090",
+                "rat": "10116",
                 "fruitfly": "7227",
-                "yeast": "4932",
                 "yeast": "4932",
             }.items():
                 logger.info("Fetch GlyGen glycoprotein data for organism %s taxId %s from SPARQL source %s", organism, taxId, baseSparqlUrl)
