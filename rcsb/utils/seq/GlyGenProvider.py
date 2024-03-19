@@ -163,6 +163,8 @@ class GlyGenProvider(StashableBase):
                 "human_protein_masterlist.csv",
                 "mouse_protein_masterlist.csv",
                 "rat_protein_masterlist.csv",
+                "fruitfly_protein_masterlist.csv",
+                "yeast_protein_masterlist.csv",
             ]:
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", baseUrl)
                 endPoint = os.path.join(baseUrl, fn)
@@ -217,6 +219,8 @@ class GlyGenProvider(StashableBase):
                 "human": "9606",
                 "mouse": "10090",
                 "rat": "10116",
+                "fruitfly": "7227",
+                "yeast": "4932",
             }.items():
                 logger.info("Fetch GlyGen glycoprotein data for organism %s taxId %s from SPARQL source %s", organism, taxId, baseSparqlUrl)
                 resultL, retL = [], []
