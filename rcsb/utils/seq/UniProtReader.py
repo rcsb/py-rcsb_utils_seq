@@ -831,6 +831,7 @@ class UniProtJsonReader(object):
         for comment in resultsD["to"]["comments"]:
             if "commentType" in comment:
                 commentType = comment["commentType"].lower()
+                commentText = commentEvidence = None
                 if "texts" in comment:
                     commentText = comment["texts"][0]["value"]
                     commentEvidence = " ".join([str(evidenceFullD[(eD["evidenceCode"], eD.get("source", None), eD.get("id", None))]) for eD in comment["texts"][0]["evidences"]])
