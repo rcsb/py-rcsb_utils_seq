@@ -169,10 +169,19 @@ class PfamProvider(StashableBase):
                 pdbId = row["PDB"].strip().upper()
                 pfamId = row["PFAM_ACCESSION"].strip().upper()
                 authAsymId = row["CHAIN"].strip().upper()
-                authSeqBeg = int(row["AUTH_PDBRES_START"].strip()) if row["AUTH_PDBRES_START"].strip() else None
-                insertBeg = row["AUTH_PDBRES_START_INS_CODE"].strip() if row["AUTH_PDBRES_START_INS_CODE"].strip() else None
-                authSeqEnd = int(row["AUTH_PDBRES_END"].strip()) if row["AUTH_PDBRES_END"].strip() else None
-                insertEnd = row["AUTH_PDBRES_END_INS_CODE"].strip() if row["AUTH_PDBRES_END_INS_CODE"].strip() else None
+                #
+                authSeqBegRaw = row["AUTH_PDBRES_START"].strip()
+                authSeqBeg = int(authSeqBegRaw) if authSeqBegRaw and authSeqBegRaw != "None" else None
+                #
+                insertBegRaw = row["AUTH_PDBRES_START_INS_CODE"].strip()
+                insertBeg = insertBegRaw if insertBegRaw and insertBegRaw != "None" else None
+                #
+                authSeqEndRaw = row["AUTH_PDBRES_END"].strip()
+                authSeqEnd = int(authSeqEndRaw) if authSeqEndRaw and authSeqEndRaw != "None" else None
+                #
+                insertEndRaw = row["AUTH_PDBRES_END_INS_CODE"].strip()
+                insertEnd = insertEndRaw if insertEndRaw and insertEndRaw != "None" else None
+                #
                 pFamMapD.setdefault(pdbId, []).append(
                     {
                         "pfamId": pfamId,
@@ -185,6 +194,7 @@ class PfamProvider(StashableBase):
                 )
             except Exception as e:
                 logger.exception("Failing with %r %s", row, str(e))
+                break
         #
         logger.info("Pfam mapping data for (%d) entries", len(pFamMapD))
         return pFamMapD
