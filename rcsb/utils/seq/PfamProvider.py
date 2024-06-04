@@ -6,8 +6,8 @@
 #   26-May-2021 jdw Add methods to fetch and deliver Pfam-PDB mappings
 #   20-Sep-2023 dwp Use HTTPS instead of FTP for Pfam data
 #    3-Oct-2023 dwp Use new Pfam mapping file, pdbmap.gz, in place of pdb_pfamA_reg.txt.gz which is no longer updated/supported
-#    3-Jun-2024 dwp Use new Pfam mapping file, pdb_pfam_mapping.tsv.gz (from SIFTS flatfiles), in place of pdbmap.gz,
-#                   as it provides more explicit header information
+#    3-Jun-2024 dwp Use new Pfam mapping file, pdb_pfam_mapping.tsv.gz (from SIFTS flatfiles),
+#                   in place of pdbmap.gz which will eventually be deprecated
 ##
 
 import logging
@@ -36,7 +36,7 @@ class PfamProvider(StashableBase):
         self.__mU = MarshalUtil(workPath=dirPath)
         self.__pfamD = self.__rebuildCache(urlTargetPfam, urlTargetPfamFB, dirPath, useCache)
 
-        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "http://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_pfam_mapping.tsv.gz")
+        urlTargetMapPfam = kwargs.get("urlTargetMapPfam", "https://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/tsv/pdb_pfam_mapping.tsv.gz")
         urlTargetMapPfamFB = "https://github.com/rcsb/py-rcsb_exdb_assets/raw/master/fall_back/Pfam/pdb_pfam_mapping.tsv.gz"
         self.__pfamMapD = self.__rebuildMappingCache(urlTargetMapPfam, urlTargetMapPfamFB, dirPath, useCache)
 
@@ -163,23 +163,24 @@ class PfamProvider(StashableBase):
     def __getPfamMapping(self, filePath):
         """Parse mapping data"""
         pFamMapD = {}
-        dataL = self.__mU.doImport(filePath, fmt="csv", csvDelimiter="\t")
-        for row in dataL:
+        encodingD = {"encoding": "ascii"} if sys.version_info[0] < 3 else {}
+        dataL = self.__mU.doImport(filePath, fmt="csv", csvDelimiter="\t", **encodingD)
+        for rD in dataL:
             try:
-                pdbId = row["PDB"].strip().upper()
-                pfamId = row["PFAM_ACCESSION"].strip().upper()
-                authAsymId = row["CHAIN"].strip().upper()
+                pdbId = rD["PDB"].strip().upper()
+                pfamId = rD["PFAM_ACCESSION"].strip().upper()
+                authAsymId = rD["CHAIN"].strip().upper()
                 #
-                authSeqBegRaw = row["AUTH_PDBRES_START"].strip()
+                authSeqBegRaw = rD["AUTH_PDBRES_START"].strip()
                 authSeqBeg = int(authSeqBegRaw) if authSeqBegRaw and authSeqBegRaw != "None" else None
                 #
-                insertBegRaw = row["AUTH_PDBRES_START_INS_CODE"].strip()
+                insertBegRaw = rD["AUTH_PDBRES_START_INS_CODE"].strip()
                 insertBeg = insertBegRaw if insertBegRaw and insertBegRaw != "None" else None
                 #
-                authSeqEndRaw = row["AUTH_PDBRES_END"].strip()
+                authSeqEndRaw = rD["AUTH_PDBRES_END"].strip()
                 authSeqEnd = int(authSeqEndRaw) if authSeqEndRaw and authSeqEndRaw != "None" else None
                 #
-                insertEndRaw = row["AUTH_PDBRES_END_INS_CODE"].strip()
+                insertEndRaw = rD["AUTH_PDBRES_END_INS_CODE"].strip()
                 insertEnd = insertEndRaw if insertEndRaw and insertEndRaw != "None" else None
                 #
                 pFamMapD.setdefault(pdbId, []).append(
@@ -193,8 +194,7 @@ class PfamProvider(StashableBase):
                     }
                 )
             except Exception as e:
-                logger.exception("Failing with %r %s", row, str(e))
-                break
+                logger.exception("Failing with %r %s", rD, str(e))
         #
         logger.info("Pfam mapping data for (%d) entries", len(pFamMapD))
         return pFamMapD
