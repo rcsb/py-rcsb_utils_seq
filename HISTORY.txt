@@ -72,3 +72,4 @@
   14-Nov-2023    V0.78 Add SPARQL functionality and version information to GlyGenProvider
   18-Mar-2024    V0.79 Add yeast and fruitfly datasets to GlyGenProvider
   21-May-2024    V0.80 Fix pylinting
+   3-Jun-2024    V0.81 Update PfamProvider to use new Pfam mapping file
