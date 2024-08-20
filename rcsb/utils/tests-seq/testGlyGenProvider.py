@@ -86,7 +86,7 @@ class GlyGenProviderTests(unittest.TestCase):
 
 def readGlyGenData():
     suiteSelect = unittest.TestSuite()
-    # suiteSelect.addTest(GlyGenProviderTests("testGetGlyGenData"))
+    suiteSelect.addTest(GlyGenProviderTests("testGetGlyGenData"))
     suiteSelect.addTest(GlyGenProviderTests("testGetGlyGenDataFallback"))
     return suiteSelect
 

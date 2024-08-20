@@ -2,6 +2,8 @@
 # File:    UniProtIdMappingProvider.py
 # Date:    30-Nov-2020
 #
+# Updates:
+# 20-Aug-2024 dwp disable backup to fallback location by default
 ##
 
 import logging

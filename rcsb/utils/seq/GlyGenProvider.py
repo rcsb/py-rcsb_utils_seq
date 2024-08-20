@@ -6,6 +6,7 @@
 #  15-May-2022 dwp Update resource URL to new location
 #  14-Nov-2023 dwp Update GlyGen data version and add version information to cache file;
 #                  Add functionality for fetching data via SPARQL
+#  20-Aug-2024 dwp Add subsequent fetch attempt in case of certificate issues
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -14,7 +15,7 @@
 
 import logging
 import os.path
-
+import requests
 from SPARQLWrapper import SPARQLWrapper, JSON
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
@@ -175,10 +176,19 @@ class GlyGenProvider(StashableBase):
                 ok = fU.get(endPoint, rawPath)
                 logger.debug("Fetch GlyGen glycoprotein data status %r", ok)
                 if not ok:
-                    endPoint = os.path.join(fallbackUrl, fn)
-                    ok = fU.get(endPoint, rawPath)
-                    logger.info("Fetch fallback GlyGen data status %r", ok)
-                    version = "1.0"
+                    # Fetch without verification
+                    resp = requests.get(endPoint, verify=False, timeout=120)
+                    if resp.status_code == 200:
+                        logger.warning("Remote file only downloadable without verification: %r", endPoint)
+                        with open(rawPath, "wb") as f:
+                            f.write(resp.content)
+                        ok = True
+                    if not ok:
+                        # Fetch from fallback
+                        endPoint = os.path.join(fallbackUrl, fn)
+                        ok = fU.get(endPoint, rawPath)
+                        logger.info("Fetch fallback GlyGen data status %r", ok)
+                        version = "1.0"
                 #
                 if ok:
                     tD = self.__parseGlycoproteinList(rawPath)

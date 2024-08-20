@@ -73,3 +73,5 @@
   18-Mar-2024    V0.79 Add yeast and fruitfly datasets to GlyGenProvider
   21-May-2024    V0.80 Fix pylinting
    3-Jun-2024    V0.81 Update PfamProvider to use new Pfam mapping file
+  20-Aug-2024    V0.82 Disable default backup to fallback setting in UniProtIdMappingProvider;
+                       Update GlyGenProvider
