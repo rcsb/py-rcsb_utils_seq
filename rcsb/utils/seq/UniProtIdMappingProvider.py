@@ -2,6 +2,8 @@
 # File:    UniProtIdMappingProvider.py
 # Date:    30-Nov-2020
 #
+# Updates:
+# 20-Aug-2024 dwp disable backup to fallback location by default
 ##
 
 import logging
@@ -274,7 +276,7 @@ class UniProtIdMappingProvider(SingletonClass):
         #
         return ok
 
-    def backup(self, cfgOb, configName):
+    def backup(self, cfgOb, configName, backupToFallback=False):
         ok1 = ok2 = False
         try:
             startTime = time.time()
@@ -282,9 +284,12 @@ class UniProtIdMappingProvider(SingletonClass):
             password = cfgOb.get("_STASH_AUTH_PASSWORD", sectionName=configName)
             basePath = cfgOb.get("_STASH_SERVER_BASE_PATH", sectionName=configName)
             url = cfgOb.get("STASH_SERVER_URL", sectionName=configName)
-            urlFallBack = cfgOb.get("STASH_SERVER_FALLBACK_URL", sectionName=configName)
             ok1 = self.__toStash(url, basePath, userName=userName, password=password)
-            ok2 = self.__toStash(urlFallBack, basePath, userName=userName, password=password)
+            if backupToFallback:
+                urlFallBack = cfgOb.get("STASH_SERVER_FALLBACK_URL", sectionName=configName)
+                ok2 = self.__toStash(urlFallBack, basePath, userName=userName, password=password)
+            else:
+                ok2 = True
             logger.info("Completed backup (%r/%r) at %s (%.4f seconds)", ok1, ok2, time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
         except Exception as e:
             logger.exception("Failing with %s", str(e))
