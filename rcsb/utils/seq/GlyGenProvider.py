@@ -100,11 +100,25 @@ class GlyGenProvider(StashableBase):
             fU = FileUtil()
             ok = fU.get(endPoint, rawPath)
             logger.debug("Fetch GlyGen glycan data status %r", ok)
+            if not ok:
+                # Fetch without verification
+                resp = requests.get(endPoint, verify=False, timeout=120)
+                if resp.status_code == 200:
+                    logger.warning("Remote file only downloadable without verification: %r", endPoint)
+                    with open(rawPath, "wb") as f:
+                        f.write(resp.content)
+                    ok = True
             #
             try:
+                vL = []
                 versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
                 vL = self.__mU.doImport(versionEndPoint)
-                version = vL[0].split(" ")[0].split("v-")[-1]
+                if vL:
+                    version = vL[0].split(" ")[0].split("v-")[-1]
+                else:
+                    logger.warning("Attempt to fetch file without verification: %r", versionEndPoint)
+                    respV = requests.get(versionEndPoint, verify=False, timeout=120)
+                    version = respV.text.strip().split(" ")[0].split("v-")[-1]
             except Exception as e:
                 logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
@@ -150,9 +164,15 @@ class GlyGenProvider(StashableBase):
         else:
             #
             try:
+                vL = []
                 versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
                 vL = self.__mU.doImport(versionEndPoint)
-                version = vL[0].split(" ")[0].split("v-")[-1]
+                if vL:
+                    version = vL[0].split(" ")[0].split("v-")[-1]
+                else:
+                    logger.warning("Attempt to fetch file without verification: %r", versionEndPoint)
+                    respV = requests.get(versionEndPoint, verify=False, timeout=120)
+                    version = respV.text.strip().split(" ")[0].split("v-")[-1]
             except Exception as e:
                 logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
@@ -174,7 +194,7 @@ class GlyGenProvider(StashableBase):
                 rawPath = os.path.join(dirPath, fn)
                 fU = FileUtil()
                 ok = fU.get(endPoint, rawPath)
-                logger.debug("Fetch GlyGen glycoprotein data status %r", ok)
+                logger.info("Fetch GlyGen glycoprotein data status %r", ok)
                 if not ok:
                     # Fetch without verification
                     resp = requests.get(endPoint, verify=False, timeout=120)
