@@ -6,7 +6,7 @@
 #  15-May-2022 dwp Update resource URL to new location
 #  14-Nov-2023 dwp Update GlyGen data version and add version information to cache file;
 #                  Add functionality for fetching data via SPARQL
-#  20-Aug-2024 dwp Add subsequent fetch attempt in case of certificate issues
+#  20-Aug-2024 dwp Adjust fetch method following certificate changes
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -15,11 +15,11 @@
 
 import logging
 import os.path
-import requests
 from SPARQLWrapper import SPARQLWrapper, JSON
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.io.StashableBase import StashableBase
+from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
 
 logger = logging.getLogger(__name__)
 
@@ -98,27 +98,19 @@ class GlyGenProvider(StashableBase):
             logger.info("Fetch GlyGen glycan data from primary data source %s", endPoint)
             rawPath = os.path.join(dirPath, "glycan_masterlist.csv")
             fU = FileUtil()
-            ok = fU.get(endPoint, rawPath)
+            uR = UrlRequestUtil()
+            ret, retCode = uR.get(baseUrl, "glycan_masterlist.csv", {})
+            ok = retCode == 200
             logger.debug("Fetch GlyGen glycan data status %r", ok)
-            if not ok:
-                # Fetch without verification
-                resp = requests.get(endPoint, verify=False, timeout=120)
-                if resp.status_code == 200:
-                    logger.warning("Remote file only downloadable without verification: %r", endPoint)
-                    with open(rawPath, "wb") as f:
-                        f.write(resp.content)
-                    ok = True
+            if ok:
+                with open(rawPath, "w", encoding="utf-8") as f:
+                    f.write(ret)
             #
+            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
             try:
-                vL = []
-                versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-                vL = self.__mU.doImport(versionEndPoint)
-                if vL:
-                    version = vL[0].split(" ")[0].split("v-")[-1]
-                else:
-                    logger.warning("Attempt to fetch file without verification: %r", versionEndPoint)
-                    respV = requests.get(versionEndPoint, verify=False, timeout=120)
-                    version = respV.text.strip().split(" ")[0].split("v-")[-1]
+                uR = UrlRequestUtil()
+                ret, retCode = uR.get(baseUrl, "release-notes.txt", {})
+                version = ret.split(" ")[0].split("v-")[-1]
             except Exception as e:
                 logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
@@ -163,16 +155,11 @@ class GlyGenProvider(StashableBase):
             logger.debug("GlyGen glycoprotein data length %d", len(gD))
         else:
             #
+            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
             try:
-                vL = []
-                versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-                vL = self.__mU.doImport(versionEndPoint)
-                if vL:
-                    version = vL[0].split(" ")[0].split("v-")[-1]
-                else:
-                    logger.warning("Attempt to fetch file without verification: %r", versionEndPoint)
-                    respV = requests.get(versionEndPoint, verify=False, timeout=120)
-                    version = respV.text.strip().split(" ")[0].split("v-")[-1]
+                uR = UrlRequestUtil()
+                ret, retCode = uR.get(baseUrl, "release-notes.txt", {})
+                version = ret.split(" ")[0].split("v-")[-1]
             except Exception as e:
                 logger.exception("Failing for %r with %s", versionEndPoint, str(e))
             #
@@ -193,22 +180,19 @@ class GlyGenProvider(StashableBase):
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", endPoint)
                 rawPath = os.path.join(dirPath, fn)
                 fU = FileUtil()
-                ok = fU.get(endPoint, rawPath)
-                logger.info("Fetch GlyGen glycoprotein data status %r", ok)
-                if not ok:
-                    # Fetch without verification
-                    resp = requests.get(endPoint, verify=False, timeout=120)
-                    if resp.status_code == 200:
-                        logger.warning("Remote file only downloadable without verification: %r", endPoint)
-                        with open(rawPath, "wb") as f:
-                            f.write(resp.content)
-                        ok = True
-                    if not ok:
-                        # Fetch from fallback
-                        endPoint = os.path.join(fallbackUrl, fn)
-                        ok = fU.get(endPoint, rawPath)
-                        logger.info("Fetch fallback GlyGen data status %r", ok)
-                        version = "1.0"
+                uR = UrlRequestUtil()
+                ret, retCode = uR.get(baseUrl, fn, {})
+                ok = retCode == 200
+                logger.info("Fetch GlyGen glycoprotein data status %r - %r", ok, endPoint)
+                if ok:
+                    with open(rawPath, "w", encoding="utf-8") as f:
+                        f.write(ret)
+                else:
+                    # Fetch from fallback
+                    endPoint = os.path.join(fallbackUrl, fn)
+                    ok = fU.get(endPoint, rawPath)
+                    logger.info("Fetch fallback GlyGen data status %r - %r", ok, endPoint)
+                    version = "1.0"
                 #
                 if ok:
                     tD = self.__parseGlycoproteinList(rawPath)
