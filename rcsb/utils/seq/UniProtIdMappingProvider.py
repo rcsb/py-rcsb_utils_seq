@@ -4,6 +4,7 @@
 #
 # Updates:
 # 20-Aug-2024 dwp disable backup to fallback location by default
+#  2-Apr-2025 dwp Update UniProt idmapping URL from FTP to HTTPS in
 ##
 
 import logging
@@ -85,10 +86,10 @@ class UniProtIdMappingProvider(SingletonClass):
 
     def reload(self, useCache=True, useLegacy=False, fmt="tdd", **kwargs):
         # full data set url -
-        # urlTarget = kwargs.get("urlTarget", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz")
+        # urlTarget = kwargs.get("urlTarget", "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping.dat.gz")
         ok = True
-        urlTarget = kwargs.get("urlTarget", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz")
-        urlTargetLegacy = kwargs.get("urlTargetLegacy", "ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.2015_03.gz")
+        urlTarget = kwargs.get("urlTarget", "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz")
+        urlTargetLegacy = kwargs.get("urlTargetLegacy", "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.2015_03.gz")
         mapNameL = kwargs.get("mapNames", ["NCBI-taxon"])
         #
         dirPath = os.path.join(self.__cachePath, self.__dirName)

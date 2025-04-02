@@ -76,3 +76,4 @@
   20-Aug-2024    V0.82 Disable default backup to fallback setting in UniProtIdMappingProvider;
                        Update GlyGenProvider
    9-Dec-2024    V0.83 Update Azure pipelines to use latest macOS, Ubuntu, and python 3.10
+   2-Apr-2025    V0.84 Update UniProt idmapping URL from FTP to HTTPS in UniProtIdMappingProvider.py
