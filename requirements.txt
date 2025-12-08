@@ -1,4 +1,0 @@
-rcsb.utils.io >= 1.15
-backports.range; python_version < "3.0"
-jsonschema >= 2.6.0
-SPARQLWrapper >= 2.0.0

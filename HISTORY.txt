@@ -77,3 +77,4 @@
                        Update GlyGenProvider
    9-Dec-2024    V0.83 Update Azure pipelines to use latest macOS, Ubuntu, and python 3.10
    2-Apr-2025    V0.84 Update UniProt idmapping URL from FTP to HTTPS in UniProtIdMappingProvider.py
+   8-Dec-2025    V0.85 Switch from setuptools to hatch build system and update pipelines to Python 3.13

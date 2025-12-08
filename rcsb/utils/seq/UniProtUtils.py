@@ -23,16 +23,11 @@ import os
 import time
 import re
 import requests
+from itertools import zip_longest
 
 from rcsb.utils.io.FastaUtil import FastaUtil
 from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
 from rcsb.utils.seq.UniProtReader import UniProtReader
-
-try:
-    from itertools import zip_longest
-except ImportError:
-    # Python 2
-    from itertools import izip_longest as zip_longest
 
 logger = logging.getLogger(__name__)
 
