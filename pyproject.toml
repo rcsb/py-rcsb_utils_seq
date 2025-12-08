@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "rcsb.utils.io >= 1.50",
+    "rcsb.utils.config >= 0.40",
     "jsonschema >= 2.6.0",
     "SPARQLWrapper >= 2.0.0",
     "requests >= 2.25",
