@@ -15,8 +15,10 @@ import os
 import time
 import unittest
 
-from rcsb.utils.seq import __version__
+from importlib.metadata import version as get_package_version
 from rcsb.utils.seq.GlyGenProvider import GlyGenProvider
+
+__version__ = get_package_version("rcsb.utils.seq")
 
 HERE = os.path.abspath(os.path.dirname(__file__))
 TOPDIR = os.path.dirname(os.path.dirname(HERE))
