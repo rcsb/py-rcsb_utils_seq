@@ -7,6 +7,7 @@
 #  14-Nov-2023 dwp Update GlyGen data version and add version information to cache file;
 #                  Add functionality for fetching data via SPARQL
 #  20-Aug-2024 dwp Adjust fetch method following certificate changes
+#  23-Dec-2025 dwp Update from version 2.2.1 to 2.10.1
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -42,7 +43,7 @@ class GlyGenProvider(StashableBase):
         super(GlyGenProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
-        baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2data/releases/data/v-2.2.1/reviewed/")
+        baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2data/releases/data/v-2.10.1/reviewed/")
         # baseSparqlUrl = kwargs.get("glygenBaseSparqlUrl", "http://sparql.glygen.org:8880/sparql")
         fallbackUrl = kwargs.get("glygenFallbackUrl", "https://raw.githubusercontent.com/rcsb/py-rcsb_exdb_assets/master/fall_back/glygen/")
         #
