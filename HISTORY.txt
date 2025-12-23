@@ -80,3 +80,4 @@
    8-Dec-2025    V0.85 Switch from setuptools to hatch build system and update pipelines to Python 3.13
   23-Dec-2025    V0.86 Update GlyGen provider from version 2.2.1 to 2.10.1;
                        Switch GlyGen from using UrlRequestUtil to FileUtil
+  23-Dec-2025    V0.87 Decrease timeout of GlyGen
