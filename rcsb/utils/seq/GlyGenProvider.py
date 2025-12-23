@@ -101,7 +101,7 @@ class GlyGenProvider(StashableBase):
             logger.info("Fetch GlyGen glycan data from primary data source %s", endPoint)
             urlPath = os.path.join(baseUrl, "glycan_masterlist.csv")
             rawPath = os.path.join(dirPath, "glycan_masterlist.csv")
-            fU = FileUtil()
+            fU = FileUtil(timeout=100)
             ok = fU.get(urlPath, rawPath)
             logger.debug("Fetch GlyGen glycan data status %r", ok)
             if not ok:
@@ -164,7 +164,7 @@ class GlyGenProvider(StashableBase):
                 #
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", endPoint)
                 rawPath = os.path.join(dirPath, fn)
-                fU = FileUtil()
+                fU = FileUtil(timeout=100)
                 urlPath = os.path.join(baseUrl, fn)
                 ok = fU.get(urlPath, rawPath)
                 logger.info("Fetch GlyGen glycoprotein data status %r - %r", ok, endPoint)
