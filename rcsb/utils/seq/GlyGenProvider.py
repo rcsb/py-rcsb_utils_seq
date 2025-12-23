@@ -7,7 +7,8 @@
 #  14-Nov-2023 dwp Update GlyGen data version and add version information to cache file;
 #                  Add functionality for fetching data via SPARQL
 #  20-Aug-2024 dwp Adjust fetch method following certificate changes
-#  23-Dec-2025 dwp Update from version 2.2.1 to 2.10.1
+#  23-Dec-2025 dwp Update from version 2.2.1 to 2.10.1;
+#                  Switch from using UrlRequestUtil to FileUtil, to allow for retries and timeouts
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -20,7 +21,6 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.io.StashableBase import StashableBase
-from rcsb.utils.io.UrlRequestUtil import UrlRequestUtil
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,13 @@ class GlyGenProvider(StashableBase):
         super(GlyGenProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
-        baseUrl = kwargs.get("glygenBasetUrl", "https://data.glygen.org/ln2data/releases/data/v-2.10.1/reviewed/")
+        self.__version = "2.10.1"
+        baseUrl = kwargs.get("glygenBaseUrl", f"https://data.glygen.org/ln2data/releases/data/v-{self.__version}/reviewed/")
         # baseSparqlUrl = kwargs.get("glygenBaseSparqlUrl", "http://sparql.glygen.org:8880/sparql")
         fallbackUrl = kwargs.get("glygenFallbackUrl", "https://raw.githubusercontent.com/rcsb/py-rcsb_exdb_assets/master/fall_back/glygen/")
         #
         self.__mU = MarshalUtil(workPath=self.__dirPath)
-        self.__glycanD, self.__version = self.__reloadGlycans(baseUrl, fallbackUrl, self.__dirPath, useCache=useCache)
+        self.__glycanD = self.__reloadGlycans(baseUrl, fallbackUrl, self.__dirPath, useCache=useCache)
         self.__glycoproteinD = self.__reloadGlycoproteins(baseUrl, fallbackUrl, self.__dirPath, useCache=useCache)
         # self.__glycoproteinD = self.__reloadGlycoproteinsSparql(baseSparqlUrl, fallbackUrl, self.__dirPath, useCache=useCache)
 
@@ -94,27 +95,15 @@ class GlyGenProvider(StashableBase):
             logger.debug("GlyGen glycan data length %d", len(gD))
         elif not useCache:
             logger.debug("Fetch GlyGen glycan data from primary data source %s", baseUrl)
+            version = self.__version
             endPoint = os.path.join(baseUrl, "glycan_masterlist.csv")
             #
             logger.info("Fetch GlyGen glycan data from primary data source %s", endPoint)
+            urlPath = os.path.join(baseUrl, "glycan_masterlist.csv")
             rawPath = os.path.join(dirPath, "glycan_masterlist.csv")
             fU = FileUtil()
-            uR = UrlRequestUtil()
-            ret, retCode = uR.get(baseUrl, "glycan_masterlist.csv", {})
-            ok = retCode == 200
+            ok = fU.get(urlPath, rawPath)
             logger.debug("Fetch GlyGen glycan data status %r", ok)
-            if ok:
-                with open(rawPath, "w", encoding="utf-8") as f:
-                    f.write(ret)
-            #
-            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-            try:
-                uR = UrlRequestUtil()
-                ret, retCode = uR.get(baseUrl, "release-notes.txt", {})
-                version = ret.split(" ")[0].split("v-")[-1]
-            except Exception as e:
-                logger.exception("Failing for %r with %s", versionEndPoint, str(e))
-            #
             if not ok:
                 endPoint = os.path.join(fallbackUrl, "glycan_masterlist.csv")
                 ok = fU.get(endPoint, rawPath)
@@ -127,7 +116,7 @@ class GlyGenProvider(StashableBase):
                 ok = self.__mU.doExport(myDataPath, fD, fmt="json")
                 logger.info("Exported GlyGen glycan list (%d) version (%r) (%r) %s", len(gD), version, ok, myDataPath)
             #
-        return gD, version
+        return gD
 
     def __parseGlycanList(self, filePath):
         gD = {}
@@ -156,13 +145,7 @@ class GlyGenProvider(StashableBase):
             logger.debug("GlyGen glycoprotein data length %d", len(gD))
         else:
             #
-            versionEndPoint = os.path.join(baseUrl, "release-notes.txt")
-            try:
-                uR = UrlRequestUtil()
-                ret, retCode = uR.get(baseUrl, "release-notes.txt", {})
-                version = ret.split(" ")[0].split("v-")[-1]
-            except Exception as e:
-                logger.exception("Failing for %r with %s", versionEndPoint, str(e))
+            version = self.__version
             #
             for fn in [
                 "sarscov1_protein_masterlist.csv",
@@ -175,20 +158,17 @@ class GlyGenProvider(StashableBase):
                 "fruitfly_protein_masterlist.csv",
                 "yeast_protein_masterlist.csv",
             ]:
+                version = self.__version
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", baseUrl)
                 endPoint = os.path.join(baseUrl, fn)
                 #
                 logger.debug("Fetch GlyGen glycoprotein data from primary data source %s", endPoint)
                 rawPath = os.path.join(dirPath, fn)
                 fU = FileUtil()
-                uR = UrlRequestUtil()
-                ret, retCode = uR.get(baseUrl, fn, {})
-                ok = retCode == 200
+                urlPath = os.path.join(baseUrl, fn)
+                ok = fU.get(urlPath, rawPath)
                 logger.info("Fetch GlyGen glycoprotein data status %r - %r", ok, endPoint)
-                if ok:
-                    with open(rawPath, "w", encoding="utf-8") as f:
-                        f.write(ret)
-                else:
+                if not ok:
                     # Fetch from fallback
                     endPoint = os.path.join(fallbackUrl, fn)
                     ok = fU.get(endPoint, rawPath)
