@@ -66,7 +66,7 @@ class GlyGenProviderTests(unittest.TestCase):
     def testGetGlyGenDataFallback(self):
         """Load GlyGen data sets using fallback site"""
         try:
-            ggP = GlyGenProvider(glygenBasetUrl="https://rcsb.org/t", cachePath=self.__cachePath, useCache=False)
+            ggP = GlyGenProvider(glygenBaseUrl="https://rcsb.org/t", cachePath=self.__cachePath, useCache=False)
             ok = ggP.testCache()
             self.assertTrue(ok)
             gD = ggP.getGlycans()
