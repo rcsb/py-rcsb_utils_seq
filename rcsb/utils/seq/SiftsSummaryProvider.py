@@ -94,13 +94,32 @@ class SiftsSummaryProvider(StashableBase):
             pass
         return aL
 
+    def __getShortAndExtIds(self, entryId):
+        # Prepare both short and extended IDs
+        # TODO: Remove after SIFTS data prep is fully transitioned over to extended IDs
+        shortId, extId = None, None
+        if entryId.startswith("pdb_"):
+            extId = entryId
+            if entryId.startswith("pdb_0000"):
+                shortId = entryId[-4:].upper()
+            else:
+                logger.info(f"entryId {entryId} does not have short ID format")
+        else:
+            shortId = entryId
+            extId = f"pdb_0000{entryId.lower()}"
+        return shortId, extId
+
     def getSeqAlignObjList(self, entryId, authAsymId):
         saoL = []
-        try:
-            # aL = self.__ssD[entryId][authAsymId]["UNPAL"]
-            saoL = [SeqAlign("SIFTS", **sa) for sa in self.__ssD[entryId][authAsymId]["UNPAL"]]
-        except Exception:
-            pass
+        # Test both short and extended IDs
+        shortId, extId = self.__getShortAndExtIds(entryId)  # TODO: Remove after SIFTS data prep is fully transitioned over to extended IDs
+        for eId in [shortId, extId]:
+            if eId and not saoL:
+                try:
+                    # aL = self.__ssD[entryId][authAsymId]["UNPAL"]
+                    saoL = [SeqAlign("SIFTS", **sa) for sa in self.__ssD[eId][authAsymId]["UNPAL"]]
+                except Exception:
+                    pass
         return saoL
 
     def getLongestAlignments(self, entryId, authAsymIdL):
@@ -136,14 +155,17 @@ class SiftsSummaryProvider(StashableBase):
 
     def getIdentifiers(self, entryId, authAsymId, idType=None):
         aL = []
-        try:
-            if idType in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
-                aL = self.__ssD[entryId][authAsymId][idType]
-                logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", entryId, authAsymId, idType, aL)
-            else:
-                logger.error("Unsupported SIFTS idType %r", idType)
-        except Exception as e:
-            logger.debug("Failing with %s", str(e))
+        shortId, extId = self.__getShortAndExtIds(entryId)
+        for eId in [shortId, extId]:
+            if eId and not aL:
+                try:
+                    if idType in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
+                        aL = self.__ssD[eId][authAsymId][idType]
+                        logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", eId, authAsymId, idType, aL)
+                    else:
+                        logger.error("Unsupported SIFTS idType %r", idType)
+                except Exception as e:
+                    logger.debug("Failing with %s", str(e))
         return aL
 
     def getTaxIds(self, entryId, authAsymId):
@@ -462,6 +484,7 @@ class SiftsSummaryProvider(StashableBase):
     def __readSiftsSummaryFile(self, filePath, rowFormat="dict"):
         """Read input SIFTS summary file and return a list of dictionaries."""
         try:
+            logger.info("reading SIFTS file %r", filePath)
             mU = MarshalUtil()
             cL = mU.doImport(filePath, fmt="csv", rowFormat=rowFormat)
             logger.debug("Container list %d", len(cL))
