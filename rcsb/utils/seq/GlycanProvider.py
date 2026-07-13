@@ -65,6 +65,52 @@ class GlycanProvider(StashableBase):
             logger.error("Failing with %r", str(e))
         return {}
 
+    def getGlycanIdentifier(self, entryId, entityIdSuffix, idTypeFilter):
+        """Get the Glycan identifier for the given ID type (e.g., "glyTouCanId").
+
+        Args:
+            entryId (str): entry ID (either 4 or 12 character)
+            entityIdSuffix (str): entity ID suffix (e.g., "1", "2", ...)
+            idTypeFilter (str): type of ID to return (e.g., "glyTouCanId")
+
+        Returns:
+            str: Gly ID of the provided ID type
+        """
+        gId = None
+        glyIdD = self.getIdentifiers()
+        # Test both short and extended IDs
+        shortId, extId = self.__getShortAndExtIds(entryId)  # TODO: Remove after Glycan/Glygen data prep is fully transitioned over to extended IDs
+        for eId in [shortId, extId]:
+            if eId and gId is None:
+                try:
+                    entityId = f"{eId}_{entityIdSuffix}"
+                    gIdD = glyIdD.get(entityId, None)
+                    if gIdD and idTypeFilter in gIdD:
+                        gId = gIdD.get(idTypeFilter, None)
+                    if gIdD is not None:
+                        logger.debug(f"Got gId {gId} from entity ID {entityId}")
+                except Exception:
+                    pass
+            else:
+                continue
+        return gId
+
+    def __getShortAndExtIds(self, entryId):
+        # Prepare both short and extended IDs
+        # TODO: Remove after Glycan/Glygen data prep and source Archive is fully transitioned over to extended IDs
+        # TODO: Remove this once rcsb.exdb.branched/GlycanProvider code is fully transitioned to use extended IDs
+        shortId, extId = None, None
+        if entryId.startswith("pdb_"):
+            extId = entryId
+            if entryId.startswith("pdb_0000"):
+                shortId = entryId[-4:].upper()
+            else:
+                logger.info(f"entryId {entryId} does not have short ID format")
+        else:
+            shortId = entryId
+            extId = f"pdb_0000{entryId.lower()}"
+        return shortId, extId
+
     def __getMappingFilePath(self, fmt="json"):
         baseFileName = "branched_entity_glycan_identifier_map"
         fExt = ".json" if fmt == "json" else ".pic"
@@ -77,18 +123,6 @@ class GlycanProvider(StashableBase):
         try:
             self.__glyD = self.__reload(fmt="json", useCache=True)
             ok = self.__glyD is not None
-            # Add extended ID versions of all short IDs
-            # TODO: Remove this once rcsb.exdb.branched/GlycanProvider code is fully transitioned to use extended IDs
-            idD = self.__glyD["identifiers"]
-            extIdD = {}
-            for k,v in idD.items():
-                if not k.startswith("pdb_"):
-                    entityIdParts = k.split("_")  # "3CUI_2" -> ["3CUI", "2"]
-                    extId = f"pdb_0000{entityIdParts[0].lower()}_{entityIdParts[1]}"
-                    if extId not in idD:
-                        extIdD[extId] = v
-            for k,v in extIdD.items():
-                self.__glyD["identifiers"][k] = v
         except Exception as e:
             logger.exception("Failing with %s", str(e))
         return ok

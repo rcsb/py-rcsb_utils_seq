@@ -191,6 +191,7 @@ class SiftsSummaryProvider(StashableBase):
         useCache = kwargs.get("useCache", True)
         entrySaveLimit = kwargs.get("entrySaveLimit", None)
         abbreviated = str(kwargs.get("abbreviated", "TEST")).upper()
+        logger.info("Rebuilding SIFTS summary cache with srcDirPath %s (abbreviated %s)", srcDirPath, abbreviated)
         #
         # cacheDirPath = kwargs.get("cacheDirPath", None)
         cacheDirPath = self.__cacheDirPath
@@ -201,8 +202,13 @@ class SiftsSummaryProvider(StashableBase):
         ssD = {}
         try:
             if useCache and os.access(saveFilePath, os.R_OK):
+                # Runs for CoreDataLoading (initial prep)
+                # accesses data from CACHE - Using existing SIFTS summary cache saveFilePath /CACHE/sifts-summary/sifts-summary-py3.pic
                 ssD = mU.doImport(saveFilePath, **cacheKwargs)
+                logger.info("Using existing SIFTS summary cache saveFilePath %s", saveFilePath)
             else:
+                # Runs for UpdateDictMethodResources and CoreCacheDataBuilding
+                # accessing data from SIFTS_SUMMARY_DATA_PATH (I think?)
                 if not srcDirPath:
                     logger.error("Missing SIFTS source path details")
                     return ssD
@@ -218,6 +224,7 @@ class SiftsSummaryProvider(StashableBase):
 
     def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="PROD"):
         """ """
+        logger.info("Getting SIFTS summary mapping with siftsSummaryDirPath %r", siftsSummaryDirPath)
 
         uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
