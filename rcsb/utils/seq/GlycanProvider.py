@@ -4,6 +4,8 @@
 #
 #  Updated:
 #
+#  TODO: Transition Glycan/Glygen data prep over to extended IDs and beta archive
+#  TODO: Transition rcsb.exdb.branched/GlycanProvider code to use extended IDs
 ##
 """
 Accessors for glycan mapped annotations.
@@ -78,38 +80,16 @@ class GlycanProvider(StashableBase):
         """
         gId = None
         glyIdD = self.getIdentifiers()
-        # Test both short and extended IDs
-        shortId, extId = self.__getShortAndExtIds(entryId)  # TODO: Remove after Glycan/Glygen data prep is fully transitioned over to extended IDs
-        for eId in [shortId, extId]:
-            if eId and gId is None:
-                try:
-                    entityId = f"{eId}_{entityIdSuffix}"
-                    gIdD = glyIdD.get(entityId, None)
-                    if gIdD and idTypeFilter in gIdD:
-                        gId = gIdD.get(idTypeFilter, None)
-                    if gIdD is not None:
-                        logger.debug(f"Got gId {gId} from entity ID {entityId}")
-                except Exception:
-                    pass
-            else:
-                continue
+        try:
+            entityId = f"{entryId}_{entityIdSuffix}"
+            gIdD = glyIdD.get(entityId, None)
+            if gIdD and idTypeFilter in gIdD:
+                gId = gIdD.get(idTypeFilter, None)
+            if gIdD is not None:
+                logger.debug(f"Got gId {gId} from entity ID {entityId}")
+        except Exception:
+            pass
         return gId
-
-    def __getShortAndExtIds(self, entryId):
-        # Prepare both short and extended IDs
-        # TODO: Remove after Glycan/Glygen data prep and source Archive is fully transitioned over to extended IDs
-        # TODO: Remove this once rcsb.exdb.branched/GlycanProvider code is fully transitioned to use extended IDs
-        shortId, extId = None, None
-        if entryId.startswith("pdb_"):
-            extId = entryId
-            if entryId.startswith("pdb_0000"):
-                shortId = entryId[-4:].upper()
-            else:
-                logger.info(f"entryId {entryId} does not have short ID format")
-        else:
-            shortId = entryId
-            extId = f"pdb_0000{entryId.lower()}"
-        return shortId, extId
 
     def __getMappingFilePath(self, fmt="json"):
         baseFileName = "branched_entity_glycan_identifier_map"
