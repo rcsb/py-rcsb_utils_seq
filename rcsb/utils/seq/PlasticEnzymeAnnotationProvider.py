@@ -106,6 +106,106 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
     def __getFastaPath(self):
         return os.path.join(self.__dirPath, "plastic-enzyme-sequences.fa")
 
+    def exportFastaFromFastaFiles(self, pazyFastaPath="pazy_proteins.fasta", plasticDBFastaPath="PlasticDB.fasta", fastaPath=None):
+        """Export a combined plastic enzyme sequence fasta file (fa-plastic-enzymes-sequences.fa) using only the
+        fasta files downloaded from PAZy and PlasticDB (i.e., not the JSON/TSV data files).
+
+        The output has the same format as exportFasta(): >{enzymeId}|enzymeId|{sourceDb}|sourceDb
+
+        PAZy fasta headers have the form ">{enzymeId} {name}" (e.g., ">1 IsPETase"), and
+        PlasticDB fasta headers have the form ">{enzymeId}|{name}|{organism}|{plastics}|{accession}" (e.g., ">00001|PHB_depolymerase|...").
+
+        Args:
+            pazyFastaPath (str): PAZy fasta input file path
+            plasticDBFastaPath (str): PlasticDB fasta input file path
+            fastaPath (str, optional): fasta output file path. Defaults to fa-plastic-enzymes-sequences.fa in the cache path
+
+        Returns:
+            bool: True for success or False otherwise
+        """
+        fastaPath = fastaPath if fastaPath else os.path.join(self.__dirPath, "fa-plastic-enzymes-sequences.fa")
+        pazyDataPath = os.path.join(self.__dirPath, "pazy-fasta-select-data.json")
+        plasticDBDataPath = os.path.join(self.__dirPath, "plasticdb-fasta-select-data.json")
+        ok = False
+        try:
+            # Step 1: restructure each source fasta file into a standardized select-data JSON file
+            pazyOk = self.__buildSelectDataFromFasta(pazyFastaPath, "PAZy", pazyDataPath)
+            plasticDBOk = self.__buildSelectDataFromFasta(plasticDBFastaPath, "PlasticDB", plasticDBDataPath)
+            if not (pazyOk and plasticDBOk):
+                return False
+            # Step 2: create the combined fasta file from the select-data JSON files
+            sD = {}
+            for dataPath in [pazyDataPath, plasticDBDataPath]:
+                qD = self.__mU.doImport(dataPath, fmt="json")
+                for enzymeId, tD in qD["data"].items():
+                    if not tD.get("sequence"):
+                        continue
+                    # Dictionary order determines the fasta header: {value}|{key}|{value}|{key}
+                    cId = "|".join([str(enzymeId), "enzymeId", str(tD["source_db"]), "sourceDb"])
+                    sD[cId] = {"sequence": tD["sequence"], "enzymeId": enzymeId, "sourceDb": tD["source_db"]}
+            #
+            ok = self.__mU.doExport(fastaPath, sD, fmt="fasta", makeComment=True)
+            logger.info("Export plastic enzyme fasta from fasta files (%d) status %r", len(sD), ok)
+        except Exception as e:
+            logger.exception("Failing to export plastic enzyme fasta from fasta files with %s", str(e))
+        return ok
+
+    def __buildSelectDataFromFasta(self, inPath, sourceDb, dataPath):
+        """Restructure a PAZy or PlasticDB fasta file into a standardized select-data JSON file. Only the enzyme ID,
+        source database, name and sequence are available from the fasta files.
+
+        Args:
+            inPath (str): source fasta file path
+            sourceDb (str): "PAZy" or "PlasticDB"
+            dataPath (str): select-data JSON output file path
+
+        Returns:
+            bool: True for success or False otherwise
+        """
+        if not self.__mU.exists(inPath):
+            logger.error("Missing %s fasta file %r", sourceDb, inPath)
+            return False
+        oD = {}
+        for header, sequence in self.__readFastaRecords(inPath):
+            if sourceDb == "PlasticDB":
+                # PlasticDB headers are "|" separated: {enzymeId}|{name}|{organism}|{plastics}|{accession}
+                fieldL = [f.strip() for f in header.split("|")]
+                enzymeId = fieldL[0]
+                name = fieldL[1] if len(fieldL) > 1 else ""
+            else:
+                # PAZy headers are: {enzymeId} {name}
+                fieldL = header.split(None, 1)
+                enzymeId = fieldL[0] if fieldL else ""
+                name = fieldL[1].strip() if len(fieldL) > 1 else ""
+            if not enzymeId or not sequence:
+                logger.debug("Skipping %s fasta record %r without enzyme ID or sequence", sourceDb, header)
+                continue
+            if enzymeId in oD:
+                logger.warning("Duplicate %s enzyme ID %r in fasta file - keeping the first", sourceDb, enzymeId)
+                continue
+            oD[enzymeId] = {"source_db": sourceDb, "name": name, "sequence": sequence}
+        return self.__exportSelectData(dataPath, oD, sourceDb)
+
+    def __readFastaRecords(self, filePath):
+        """Read a fasta file and return a list of (header, sequence) tuples, where the header excludes the leading ">"
+        and the sequence has all whitespace removed and is upper case.
+        """
+        recordL = []
+        header = None
+        seqL = []
+        with open(filePath, "r", encoding="utf-8") as ifh:
+            for line in ifh:
+                line = line.rstrip("\r\n")
+                if line.startswith(">"):
+                    if header is not None:
+                        recordL.append((header, self.__cleanSequence("".join(seqL))))
+                    header, seqL = line[1:].strip(), []
+                elif header is not None:
+                    seqL.append(line)
+        if header is not None:
+            recordL.append((header, self.__cleanSequence("".join(seqL))))
+        return recordL
+
     def __fetchPazyData(self):
         """Fetch PAZy JSON data and restructure it -> pazy-select-data.json
 
