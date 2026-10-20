@@ -4,6 +4,7 @@
 # Date:    11-Dec-2018
 #
 # Update:
+#  20-Oct-2026 dwp Add test for loading a cache built by older code (uppercase entry ID keys)
 #
 #
 ##
@@ -20,9 +21,11 @@ __license__ = "Apache 2.0"
 import logging
 import os
 import platform
+import shutil
 import time
 import unittest
 
+from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.SiftsSummaryProvider import SiftsSummaryProvider
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -86,6 +89,26 @@ class SiftsSummaryProviderTests(unittest.TestCase):
 
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
 
+    def testReadLegacySiftsSummaryCache(self):
+        """Test that a cache built by older code (uppercase entry ID keys, e.g. restored from the stash) is still usable."""
+        cachePath = os.path.join(HERE, "test-output", "CACHE-legacy-sifts")
+        shutil.rmtree(cachePath, ignore_errors=True)
+        legacyD = {
+            "1CBS": {"A": {"UNPID": ["P29373"], "UNPAL": [{"UP": "P29373", "BG": 1, "LEN": 137, "UBG": 1, "UND": 137}], "TAXID": ["9606"]}},
+            "1234": {"A": {"UNPID": ["P00001"]}},
+        }
+        mU = MarshalUtil()
+        mU.mkdir(os.path.join(cachePath, "sifts-summary"))
+        ok = mU.doExport(os.path.join(cachePath, "sifts-summary", "sifts-summary-py3.pic"), legacyD, fmt="pickle")
+        self.assertTrue(ok)
+        su = SiftsSummaryProvider(cachePath=cachePath, useCache=True)
+        self.assertEqual(su.getEntries(), ["1234", "1cbs"])
+        for entryId in ["1CBS", "1cbs"]:
+            self.assertEqual(su.getIdentifiers(entryId, "A", "UNPID"), ["P29373"])
+            self.assertEqual(su.getTaxIds(entryId, "A"), ["9606"])
+            self.assertEqual(su.getAlignmentCount(entryId, "A"), 1)
+        self.assertEqual(su.getEntryUniqueIdentifiers(["1234", "1CBS"]), ["P00001", "P29373"])
+
     @unittest.skipIf(platform.system() != "Darwin", "Skip long development troubleshooting test")
     def testWriteSiftsSummaryCacheJson(self):
         entrySaveLimit = 50
@@ -106,6 +129,7 @@ def readSiftsInfo():
     suiteSelect = unittest.TestSuite()
     # suiteSelect.addTest(SiftsSummaryProviderTests("testWriteSiftsSummaryCacheJson"))
     suiteSelect.addTest(SiftsSummaryProviderTests("testWriteReadSiftsSummaryCache"))
+    suiteSelect.addTest(SiftsSummaryProviderTests("testReadLegacySiftsSummaryCache"))
     return suiteSelect
 
 

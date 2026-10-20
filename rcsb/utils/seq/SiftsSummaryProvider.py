@@ -9,6 +9,9 @@
 #  15-Sep-2026 dwp RO-5076: Normalize entry ID keys to lowercase on both cache build and lookup, so that short and
 #                  extended PDB IDs may be supplied in any case. NOTE: requires regeneration of the SIFTS summary cache file,
 #                  although this should happen automatically
+#  20-Oct-2026 dwp RO-5076: Also normalize entry ID keys to lowercase when loading an existing cache file, since a cache
+#                  built by older code (uppercase keys, e.g. restored from the stash) is reused as-is and every lookup
+#                  would otherwise miss
 ##
 """
 Utilities to manage access to SIFTS summary mapping data.
@@ -187,6 +190,10 @@ class SiftsSummaryProvider(StashableBase):
                 # accesses data from CACHE - Using existing SIFTS summary cache saveFilePath /CACHE/sifts-summary/sifts-summary-py3.pic
                 ssD = mU.doImport(saveFilePath, **cacheKwargs)
                 logger.info("Using existing SIFTS summary cache saveFilePath %s", saveFilePath)
+                # Caches built before 15-Sep-2026 have uppercase entry ID keys; lookups are lowercase
+                if ssD and any(k != k.lower() for k in ssD):
+                    logger.warning("Normalizing entry ID keys to lowercase in SIFTS summary cache %s (built by older code)", saveFilePath)
+                    ssD = {k.lower(): v for k, v in ssD.items()}
             else:
                 # Runs for UpdateDictMethodResources and CoreCacheDataBuilding
                 # accessing data from SIFTS_SUMMARY_DATA_PATH (I think?)
