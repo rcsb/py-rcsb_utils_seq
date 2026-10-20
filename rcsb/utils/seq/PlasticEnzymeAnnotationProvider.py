@@ -3,10 +3,22 @@
 #  Date:           7-Oct-2026
 #
 #  Updates:
-#
+#  20-Oct-2026 dwp Use the PlasticDB FASTA file (instead of the TSV) as the PlasticDB data source; parse all PlasticDB
+#                  FASTA header fields; read FASTA files with MarshalUtil; skip writing source data with too few
+#                  records; add reload/testCache, buildAnnotationList (list of annotations per entity) and accessors;
+#                  sort substrate lists
 ##
 """
 Accessors and generators for plastic-degrading enzyme annotation data (sourced from PAZy and PlasticDB).
+
+Workflow:
+    1. fetchPlasticEnzymeData() - fetch PAZy (JSON) and PlasticDB (FASTA) data and standardize each
+                                  (pazy-select-data.json and plasticdb-select-data.json)
+    2. exportFasta()            - export the combined enzyme sequences (plastic-enzyme-sequences.fa)
+    3. (external)               - sequence search of the enzyme sequences against PDB polymer entities
+    4. buildAnnotationList()    - build the polymer entity annotations from the search results
+                                  (plastic-enzyme-annotation-data.json)
+    5. getAnnotation()          - annotation lookup by polymer entity ID
 """
 
 import datetime
@@ -34,11 +46,62 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         #
         # Source locators (remote URLs by default; local file paths are also accepted by FileUtil.get())
         self.__pazyUrl = kwargs.get("pazyUrl", "https://api.pazy.eu/api/proteins/json/?format=json")
-        self.__plasticDBUrl = kwargs.get("plasticDBUrl", "https://plasticdb.org/static/degraders_list.tsv")
+        self.__plasticDBUrl = kwargs.get("plasticDBUrl", "https://plasticdb.org/static/PlasticDB.fasta")
         #
         self.__mU = MarshalUtil(workPath=self.__dirPath)
         self.__fU = FileUtil()
-        self.__fU.mkdir(self.__dirPath)
+        self.__pazyD, self.__plasticDBD, self.__annotD = self.__reload(**kwargs)
+
+    def testCache(self, minCount=100):
+        """Check that the PAZy and PlasticDB source data and the annotation data are each loaded with more than minCount records."""
+        ok = self.testSourceCache(minCount=minCount)
+        annotCount = len(self.__annotD.get("annotations", {})) if self.__annotD else 0
+        logger.info("Plastic enzyme annotation count %d (minCount %d)", annotCount, minCount)
+        return ok and annotCount > minCount
+
+    def testSourceCache(self, minCount=100):
+        """Check that the PAZy and PlasticDB source data are each loaded with more than minCount records (required for
+        exportFasta() and buildAnnotationList())."""
+        pazyCount = len(self.__pazyD.get("data", {})) if self.__pazyD else 0
+        plasticDBCount = len(self.__plasticDBD.get("data", {})) if self.__plasticDBD else 0
+        logger.info("Plastic enzyme source data counts PAZy %d PlasticDB %d (minCount %d)", pazyCount, plasticDBCount, minCount)
+        return pazyCount > minCount and plasticDBCount > minCount
+
+    def reload(self):
+        """Reload the source and annotation data from the cache path.
+
+        Returns:
+            bool: testCache() status
+        """
+        self.__pazyD, self.__plasticDBD, self.__annotD = self.__reload(useCache=True)
+        return self.testCache()
+
+    def getVersion(self):
+        return self.__annotD.get("version", None) if self.__annotD else None
+
+    def hasAnnotation(self, rcsbEntityId):
+        return bool(self.__annotD) and rcsbEntityId in self.__annotD.get("annotations", {})
+
+    def getAnnotation(self, rcsbEntityId):
+        """Get the plastic enzyme annotations for the input polymer entity ID (e.g., "7DZT_1" or "pdb_00007dzt_1").
+
+        Returns:
+            list: annotation dictionaries (best match first), or None if the entity has no annotations
+        """
+        try:
+            return self.__annotD["annotations"][rcsbEntityId]
+        except Exception:
+            pass
+        return None
+
+    def getEnzyme(self, sourceDb, enzymeId):
+        """Get the standardized source record for the input source database ("PAZy" or "PlasticDB") and enzyme ID."""
+        try:
+            dD = self.__pazyD if sourceDb == "PAZy" else self.__plasticDBD if sourceDb == "PlasticDB" else {}
+            return dD["data"][enzymeId]
+        except Exception:
+            pass
+        return None
 
     def __getPazyDataPath(self):
         return os.path.join(self.__dirPath, "pazy-select-data.json")
@@ -46,16 +109,39 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
     def __getPlasticDBDataPath(self):
         return os.path.join(self.__dirPath, "plasticdb-select-data.json")
 
-    def fetchPlasticEnzymeData(self):
+    def __getAnnotationDataPath(self):
+        return os.path.join(self.__dirPath, "plastic-enzyme-annotation-data.json")
+
+    def __getFastaPath(self):
+        return os.path.join(self.__dirPath, "plastic-enzyme-sequences.fa")
+
+    def __reload(self, **kwargs):
+        startTime = time.time()
+        useCache = kwargs.get("useCache", True)
+        self.__fU.mkdir(self.__dirPath)
+        dataL = [{}, {}, {}]
+        if useCache:
+            for ii, dataPath in enumerate([self.__getPazyDataPath(), self.__getPlasticDBDataPath(), self.__getAnnotationDataPath()]):
+                if self.__mU.exists(dataPath):
+                    dataL[ii] = self.__mU.doImport(dataPath, fmt="json") or {}
+                else:
+                    logger.info("Plastic enzyme cache file not present %r", dataPath)
+        logger.info("Completed reload (useCache %r) at %s (%.4f seconds)", useCache, time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
+        return dataL[0], dataL[1], dataL[2]
+
+    def fetchPlasticEnzymeData(self, minCount=100):
         """Fetch the PAZy and PlasticDB source data and restructure each into a standardized JSON file
         (pazy-select-data.json and plasticdb-select-data.json) in the cache path.
+
+        Args:
+            minCount (int, optional): minimum number of records required to replace the cached data for a source. Defaults to 100.
 
         Returns:
             bool: True for success (both sources) or False otherwise
         """
         startTime = time.time()
-        pazyOk = self.__fetchPazyData()
-        plasticDBOk = self.__fetchPlasticDBData()
+        pazyOk = self.__fetchPazyData(minCount=minCount)
+        plasticDBOk = self.__fetchPlasticDBData(minCount=minCount)
         ok = pazyOk and plasticDBOk
         logger.info(
             "Completed fetch of plastic enzyme data (%r) PAZy (%r) PlasticDB (%r) at %s (%.4f seconds)",
@@ -69,7 +155,7 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
 
     def exportFasta(self, fastaPath=None):
         """Export a combined (PAZy and PlasticDB) plastic enzyme sequence fasta file (plastic-enzyme-sequences.fa)
-        using the standardized select-data JSON files in the cache path.
+        from the standardized source data.
 
         Each fasta header has the form: >{enzymeId}|enzymeId|{sourceDb}|sourceDb
         (e.g., >111|enzymeId|PAZy|sourceDb or >00003|enzymeId|PlasticDB|sourceDb).
@@ -83,12 +169,11 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         fastaPath = fastaPath if fastaPath else self.__getFastaPath()
         ok = False
         try:
+            if not (self.__pazyD and self.__plasticDBD):
+                logger.error("Missing plastic enzyme source data (run fetchPlasticEnzymeData first)")
+                return False
             sD = {}
-            for dataPath in [self.__getPazyDataPath(), self.__getPlasticDBDataPath()]:
-                if not self.__mU.exists(dataPath):
-                    logger.error("Missing plastic enzyme data file %r (run fetchPlasticEnzymeData first)", dataPath)
-                    return False
-                qD = self.__mU.doImport(dataPath, fmt="json")
+            for qD in [self.__pazyD, self.__plasticDBD]:
                 for enzymeId, tD in qD["data"].items():
                     if not tD.get("sequence"):
                         continue
@@ -103,110 +188,88 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
             logger.exception("Failing to export plastic enzyme fasta with %s", str(e))
         return ok
 
-    def __getFastaPath(self):
-        return os.path.join(self.__dirPath, "plastic-enzyme-sequences.fa")
+    def buildAnnotationList(self, sequenceMatchFilePath, minCount=100):
+        """Build the polymer entity annotations for the matching entities in the input sequence match file
+        -> plastic-enzyme-annotation-data.json
 
-    def exportFastaFromFastaFiles(self, pazyFastaPath="pazy_proteins.fasta", plasticDBFastaPath="PlasticDB.fasta", fastaPath=None):
-        """Export a combined plastic enzyme sequence fasta file (fa-plastic-enzymes-sequences.fa) using only the
-        fasta files downloaded from PAZy and PlasticDB (i.e., not the JSON/TSV data files).
-
-        The output has the same format as exportFasta(): >{enzymeId}|enzymeId|{sourceDb}|sourceDb
-
-        PAZy fasta headers have the form ">{enzymeId} {name}" (e.g., ">1 IsPETase"), and
-        PlasticDB fasta headers have the form ">{enzymeId}|{name}|{organism}|{plastics}|{accession}" (e.g., ">00001|PHB_depolymerase|...").
+        A polymer entity can match several enzymes (e.g., identical sequences in PAZy and PlasticDB), so each entity
+        is assigned a list of annotations (one per matching enzyme), sorted by best match first.
 
         Args:
-            pazyFastaPath (str): PAZy fasta input file path
-            plasticDBFastaPath (str): PlasticDB fasta input file path
-            fastaPath (str, optional): fasta output file path. Defaults to fa-plastic-enzymes-sequences.fa in the cache path
+            sequenceMatchFilePath (str): sequence match output file path (e.g., plastic-enzyme-vs-pdbprent-filtered-results.json)
+            minCount (int, optional): minimum number of PAZy and PlasticDB source records required. Defaults to 100.
 
         Returns:
             bool: True for success or False otherwise
         """
-        fastaPath = fastaPath if fastaPath else os.path.join(self.__dirPath, "fa-plastic-enzymes-sequences.fa")
-        pazyDataPath = os.path.join(self.__dirPath, "pazy-fasta-select-data.json")
-        plasticDBDataPath = os.path.join(self.__dirPath, "plasticdb-fasta-select-data.json")
-        ok = False
-        try:
-            # Step 1: restructure each source fasta file into a standardized select-data JSON file
-            pazyOk = self.__buildSelectDataFromFasta(pazyFastaPath, "PAZy", pazyDataPath)
-            plasticDBOk = self.__buildSelectDataFromFasta(plasticDBFastaPath, "PlasticDB", plasticDBDataPath)
-            if not (pazyOk and plasticDBOk):
-                return False
-            # Step 2: create the combined fasta file from the select-data JSON files
-            sD = {}
-            for dataPath in [pazyDataPath, plasticDBDataPath]:
-                qD = self.__mU.doImport(dataPath, fmt="json")
-                for enzymeId, tD in qD["data"].items():
-                    if not tD.get("sequence"):
-                        continue
-                    # Dictionary order determines the fasta header: {value}|{key}|{value}|{key}
-                    cId = "|".join([str(enzymeId), "enzymeId", str(tD["source_db"]), "sourceDb"])
-                    sD[cId] = {"sequence": tD["sequence"], "enzymeId": enzymeId, "sourceDb": tD["source_db"]}
-            #
-            ok = self.__mU.doExport(fastaPath, sD, fmt="fasta", makeComment=True)
-            logger.info("Export plastic enzyme fasta from fasta files (%d) status %r", len(sD), ok)
-        except Exception as e:
-            logger.exception("Failing to export plastic enzyme fasta from fasta files with %s", str(e))
+        if not self.testSourceCache(minCount=minCount):
+            logger.warning("Skipping build of plastic enzyme annotations because the source data is missing")
+            return False
+        mD = self.__mU.doImport(sequenceMatchFilePath, fmt="json")
+        if mD is None:
+            logger.error("Unable to read sequence match file %r", sequenceMatchFilePath)
+            return False
+        #
+        # {entityId: {(sourceDb, enzymeId): annotation dict}}
+        eD = {}
+        for queryId, matchDL in mD.items():
+            qCmtD = self.__decodeComment(queryId)
+            enzymeId = qCmtD.get("enzymeId")
+            sourceDb = qCmtD.get("sourceDb")
+            tD = self.getEnzyme(sourceDb, enzymeId)
+            if not tD:
+                logger.warning("Skipping matches for unknown enzyme %r", queryId)
+                continue
+            for matchD in matchDL:
+                try:
+                    tCmtD = self.__decodeComment(matchD["target"])
+                    rcsbEntityId = tCmtD["entityId"]
+                    # Split on the last underscore, so that both short (7DZT_1) and extended (pdb_00007dzt_1) IDs work
+                    entryId, entityId = rcsbEntityId.rsplit("_", 1)
+                    seqIdPct = float(matchD["sequenceIdentity"])
+                    rD = {
+                        "entry_id": entryId,
+                        "entity_id": entityId,
+                        "annotation_id": enzymeId,
+                        "source_db": sourceDb,
+                        "name": tD.get("name"),
+                        "description": "Plastic degrading enzyme (sequence matched against %s)." % sourceDb,
+                        "substrates": tD.get("substrates", []),
+                        "seq_id_pct": seqIdPct,
+                        "bit_score": float(matchD["bitScore"]),
+                        "reference_scheme": "PDB entity",
+                        "perfect_match": "Y" if seqIdPct == 100.0 else "N",
+                    }
+                    # Keep the best match for each (entity, enzyme) pair (e.g., an entity with multiple source parts)
+                    ky = (sourceDb, enzymeId)
+                    oD = eD.setdefault(rcsbEntityId, {})
+                    if ky not in oD or (rD["seq_id_pct"], rD["bit_score"]) > (oD[ky]["seq_id_pct"], oD[ky]["bit_score"]):
+                        oD[ky] = rD
+                except Exception as e:
+                    logger.warning("Unable to process match data for %r with exception %r", queryId, e)
+        #
+        aD = {}
+        for rcsbEntityId, oD in eD.items():
+            aD[rcsbEntityId] = sorted(oD.values(), key=lambda k: (-k["seq_id_pct"], -k["bit_score"], k["source_db"], k["annotation_id"]))
+        #
+        tS = datetime.datetime.now().isoformat()
+        self.__annotD = {"version": "1.0", "created": tS, "annotations": aD}
+        ok = self.__mU.doExport(self.__getAnnotationDataPath(), self.__annotD, fmt="json", indent=3)
+        logger.info(
+            "Built plastic enzyme annotations (status %r) for %d entities (%d annotations)", ok, len(aD), sum(len(v) for v in aD.values())
+        )
         return ok
 
-    def __buildSelectDataFromFasta(self, inPath, sourceDb, dataPath):
-        """Restructure a PAZy or PlasticDB fasta file into a standardized select-data JSON file. Only the enzyme ID,
-        source database, name and sequence are available from the fasta files.
+    def __decodeComment(self, comment, separator="|"):
+        dD = {}
+        try:
+            ti = iter(comment.split(separator))
+            dD = {tup[1]: tup[0] for tup in zip(ti, ti)}
+        except Exception:
+            pass
+        return dD
 
-        Args:
-            inPath (str): source fasta file path
-            sourceDb (str): "PAZy" or "PlasticDB"
-            dataPath (str): select-data JSON output file path
-
-        Returns:
-            bool: True for success or False otherwise
-        """
-        if not self.__mU.exists(inPath):
-            logger.error("Missing %s fasta file %r", sourceDb, inPath)
-            return False
-        oD = {}
-        for header, sequence in self.__readFastaRecords(inPath):
-            if sourceDb == "PlasticDB":
-                # PlasticDB headers are "|" separated: {enzymeId}|{name}|{organism}|{plastics}|{accession}
-                fieldL = [f.strip() for f in header.split("|")]
-                enzymeId = fieldL[0]
-                name = fieldL[1] if len(fieldL) > 1 else ""
-            else:
-                # PAZy headers are: {enzymeId} {name}
-                fieldL = header.split(None, 1)
-                enzymeId = fieldL[0] if fieldL else ""
-                name = fieldL[1].strip() if len(fieldL) > 1 else ""
-            if not enzymeId or not sequence:
-                logger.debug("Skipping %s fasta record %r without enzyme ID or sequence", sourceDb, header)
-                continue
-            if enzymeId in oD:
-                logger.warning("Duplicate %s enzyme ID %r in fasta file - keeping the first", sourceDb, enzymeId)
-                continue
-            oD[enzymeId] = {"source_db": sourceDb, "name": name, "sequence": sequence}
-        return self.__exportSelectData(dataPath, oD, sourceDb)
-
-    def __readFastaRecords(self, filePath):
-        """Read a fasta file and return a list of (header, sequence) tuples, where the header excludes the leading ">"
-        and the sequence has all whitespace removed and is upper case.
-        """
-        recordL = []
-        header = None
-        seqL = []
-        with open(filePath, "r", encoding="utf-8") as ifh:
-            for line in ifh:
-                line = line.rstrip("\r\n")
-                if line.startswith(">"):
-                    if header is not None:
-                        recordL.append((header, self.__cleanSequence("".join(seqL))))
-                    header, seqL = line[1:].strip(), []
-                elif header is not None:
-                    seqL.append(line)
-        if header is not None:
-            recordL.append((header, self.__cleanSequence("".join(seqL))))
-        return recordL
-
-    def __fetchPazyData(self):
+    def __fetchPazyData(self, minCount=100):
         """Fetch PAZy JSON data and restructure it -> pazy-select-data.json
 
         Returns:
@@ -218,8 +281,9 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
             logger.error("Fetching failed for PAZy data")
             return False
         rawD = self.__mU.doImport(rawPath, fmt="json")
+        self.__fU.remove(rawPath)
         if not rawD:
-            logger.error("Unable to read PAZy data from %r", rawPath)
+            logger.error("Unable to read PAZy data from %r", self.__pazyUrl)
             return False
         # The bulk download is a dictionary with "count" and "results" keys (but also accept a plain list)
         if isinstance(rawD, dict):
@@ -245,7 +309,7 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
                 eD = {
                     "source_db": "PAZy",
                     "name": (entry.get("name") or "").strip(),
-                    "substrates": substrateL,
+                    "substrates": sorted(substrateL),
                     "sequence": sequence,
                 }
                 orgD = entry.get("organism") or {}
@@ -262,64 +326,82 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
             except Exception as e:
                 logger.exception("Failing to process PAZy entry %r with %s", entry.get("id") if isinstance(entry, dict) else entry, str(e))
         #
-        return self.__exportSelectData(self.__getPazyDataPath(), oD, "PAZy")
+        if len(oD) < minCount:
+            logger.error("Too few PAZy records (%d < %d), keeping the existing cached data", len(oD), minCount)
+            return False
+        self.__pazyD = self.__exportSelectData(self.__getPazyDataPath(), oD, "PAZy")
+        return bool(self.__pazyD)
 
-    def __fetchPlasticDBData(self):
-        """Fetch PlasticDB TSV data and restructure it -> plasticdb-select-data.json
+    def __fetchPlasticDBData(self, minCount=100):
+        """Fetch PlasticDB FASTA data and restructure it -> plasticdb-select-data.json
 
-        Multiple rows may describe the same enzyme (one row per plastic), so rows are combined
-        into a single record per enzyme ID with all plastics collected in the substrates list.
+        PlasticDB fasta headers have the form: >{enzymeId}|{name}|{organism}|{plastics}|{accession}
+        (e.g., >00001|PHB_depolymerase|Ralstonia_pickettii|PHB_PHA|BAA04986.1), where spaces in the name and organism
+        are written as "_", plastics are "_" separated (spaces within a plastic name are written as "-", e.g. "PBS-Blend"),
+        and a missing accession is "NA".
 
         Returns:
             bool: True for success or False otherwise
         """
-        rawPath = os.path.join(self.__dirPath, "degraders_list.tsv")
+        rawPath = os.path.join(self.__dirPath, "PlasticDB.fasta")
         logger.info("Fetching PlasticDB data from %r to %r", self.__plasticDBUrl, rawPath)
         if not self.__fU.get(self.__plasticDBUrl, rawPath):
             logger.error("Fetching failed for PlasticDB data")
             return False
-        # uncomment=False so that "#" characters and empty trailing columns in the data are preserved
-        rowL = self.__mU.doImport(rawPath, fmt="tdd", rowFormat="dict", uncomment=False)
-        if not rowL:
-            logger.error("Unable to read PlasticDB data from %r", rawPath)
+        # The "default" comment style returns {header (without ">"): {"sequence": ...}}
+        sD = self.__mU.doImport(rawPath, fmt="fasta", commentStyle="default")
+        self.__fU.remove(rawPath)
+        if not sD:
+            logger.error("Unable to read PlasticDB data from %r", self.__plasticDBUrl)
             return False
         #
         oD = {}
-        for rowD in rowL:
+        for header, seqD in sD.items():
             try:
-                # Note that the source header contains a typo ("Enzyne")
-                dbName = rowD.get("Database Enzyne Name", rowD.get("Database Enzyme Name", "")) or ""
-                enzymeId = dbName.split("|")[0].strip()
-                sequence = self.__cleanSequence(rowD.get("Sequence"))
+                fieldL = [f.strip() for f in header.split("|")]
+                if len(fieldL) != 5:
+                    logger.warning("Skipping PlasticDB record with unexpected header format %r", header)
+                    continue
+                enzymeId, name, organism, plastics, accession = fieldL
+                sequence = self.__cleanSequence(seqD.get("sequence"))
                 if not enzymeId or not sequence:
+                    logger.debug("Skipping PlasticDB record %r without enzyme ID or sequence", header)
                     continue
-                substrate = (rowD.get("Plastic") or "").strip()
                 if enzymeId in oD:
-                    eD = oD[enzymeId]
-                    if eD["sequence"] != sequence:
-                        logger.warning("PlasticDB enzyme %r has multiple different sequences - keeping the first", enzymeId)
-                        continue
-                    if substrate and substrate not in eD["substrates"]:
-                        eD["substrates"].append(substrate)
+                    logger.warning("Duplicate PlasticDB enzyme ID %r - keeping the first", enzymeId)
                     continue
+                substrateL = []
+                for substrate in plastics.split("_"):
+                    if substrate and substrate not in substrateL:
+                        substrateL.append(substrate)
                 eD = {
                     "source_db": "PlasticDB",
-                    "name": (rowD.get("Enzyme") or "").strip(),
-                    "substrates": [substrate] if substrate else [],
+                    "name": name.replace("_", " ").strip(),
+                    "substrates": sorted(substrateL),
                     "sequence": sequence,
                 }
-                orgName = (rowD.get("Microorganism") or "").strip()
+                orgName = organism.replace("_", " ").strip()
                 if orgName:
                     eD["organism_scientific_name"] = orgName
-                taxId = (rowD.get("Tax ID") or "").strip()
-                if taxId:
-                    eD["organism_ncbi_tax_id"] = taxId
-                # PlasticDB provides GenBank (not UniProt) accessions, so "uniprot_accession" is not available
+                # PlasticDB doesn't provide taxonomy IDs in the FASTA file. Accessions are mostly GenBank protein IDs,
+                # with some UniProt accessions (e.g., Q96UT0.1)
+                if accession and accession.upper() != "NA":
+                    if self.__isUniProtAccession(accession.split(".")[0]):
+                        eD["uniprot_accession"] = accession.split(".")[0]
+                    else:
+                        eD["genbank_accession"] = accession
                 oD[enzymeId] = eD
             except Exception as e:
-                logger.exception("Failing to process PlasticDB row %r with %s", rowD, str(e))
+                logger.exception("Failing to process PlasticDB record %r with %s", header, str(e))
         #
-        return self.__exportSelectData(self.__getPlasticDBDataPath(), oD, "PlasticDB")
+        if len(oD) < minCount:
+            logger.error("Too few PlasticDB records (%d < %d), keeping the existing cached data", len(oD), minCount)
+            return False
+        self.__plasticDBD = self.__exportSelectData(self.__getPlasticDBDataPath(), oD, "PlasticDB")
+        return bool(self.__plasticDBD)
+
+    def __isUniProtAccession(self, accession):
+        return re.match(r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$", accession) is not None
 
     def __cleanSequence(self, sequence):
         """Remove all whitespace from a raw sequence string (returns an empty string if no sequence)."""
@@ -330,6 +412,7 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
     def __exportSelectData(self, filePath, dataD, sourceDb):
         tS = datetime.datetime.now().isoformat()
         # Version is hard-coded since it is not available via the source databases
-        ok = self.__mU.doExport(filePath, {"version": "1.0", "created": tS, "data": dataD}, fmt="json", indent=3)
+        sD = {"version": "1.0", "created": tS, "data": dataD}
+        ok = self.__mU.doExport(filePath, sD, fmt="json", indent=3)
         logger.info("Export %s data (%d) status %r", sourceDb, len(dataD), ok)
-        return ok
+        return sD if ok else {}
