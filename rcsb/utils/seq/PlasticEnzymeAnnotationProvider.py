@@ -39,12 +39,70 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         self.__mU = MarshalUtil(workPath=self.__dirPath)
         self.__fU = FileUtil()
         self.__fU.mkdir(self.__dirPath)
+        #
+        # In-memory data objects (loaded from the cache path files)
+        self.__pazyD = {}
+        self.__plasticDBD = {}
+        self.__annotD = {}
+        self.__reload(**kwargs)
 
     def __getPazyDataPath(self):
         return os.path.join(self.__dirPath, "pazy-select-data.json")
 
     def __getPlasticDBDataPath(self):
         return os.path.join(self.__dirPath, "plasticdb-select-data.json")
+
+    def __getAnnotationDataPath(self):
+        return os.path.join(self.__dirPath, "plastic-enzyme-annotation-data.json")
+
+    def testCache(self, minCount=100):
+        """Check that each of the data objects (PAZy, PlasticDB and annotation data) has more than minCount entries.
+
+        Returns:
+            bool: True if all data objects are sufficiently populated or False otherwise
+        """
+        pazyCount = len(self.__pazyD)
+        plasticDBCount = len(self.__plasticDBD)
+        annotCount = len(self.__annotD)
+        ok = pazyCount > minCount and plasticDBCount > minCount and annotCount > minCount
+        logger.info("Plastic enzyme testCache status (%r) PAZy count %d PlasticDB count %d annotation count %d", ok, pazyCount, plasticDBCount, annotCount)
+        return ok
+
+    def reload(self):
+        """Reload the data objects from the files in the cache path (using the cache).
+
+        Returns:
+            bool: True if all data objects are loaded and pass testCache() or False otherwise
+        """
+        self.__reload(useCache=True)
+        return self.testCache()
+
+    def __reload(self, **kwargs):
+        """Reload pazy-select-data.json, plasticdb-select-data.json and plastic-enzyme-annotation-data.json from the
+        cache path, if useCache is True (default). Files that are not present are logged. Nothing is done if useCache is False.
+        """
+        startTime = time.time()
+        useCache = kwargs.get("useCache", True)
+        logger.info("useCache %r dirPath %r", useCache, self.__dirPath)
+        if not useCache:
+            return
+        self.__pazyD = self.__loadDataFile(self.__getPazyDataPath(), "data")
+        self.__plasticDBD = self.__loadDataFile(self.__getPlasticDBDataPath(), "data")
+        self.__annotD = self.__loadDataFile(self.__getAnnotationDataPath(), "annotations")
+        logger.info("Completed reload at %s (%.4f seconds)", time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
+
+    def __loadDataFile(self, filePath, key):
+        """Import a JSON data file and return the dictionary stored under the input key (or an empty dictionary
+        if the file is not present or cannot be loaded).
+        """
+        if not self.__mU.exists(filePath):
+            logger.info("Plastic enzyme data file not present: %r", filePath)
+            return {}
+        fD = self.__mU.doImport(filePath, fmt="json")
+        if isinstance(fD, dict) and isinstance(fD.get(key), dict):
+            return fD[key]
+        logger.warning("Unable to load %r data from %r", key, filePath)
+        return {}
 
     def fetchPlasticEnzymeData(self):
         """Fetch the PAZy and PlasticDB source data and restructure each into a standardized JSON file
