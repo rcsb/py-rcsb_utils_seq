@@ -6,7 +6,9 @@
 #  20-Oct-2026 dwp Use the PlasticDB FASTA file (instead of the TSV) as the PlasticDB data source; parse all PlasticDB
 #                  FASTA header fields; read FASTA files with MarshalUtil; skip writing source data with too few
 #                  records; add reload/testCache, buildAnnotationList (list of annotations per entity) and accessors;
-#                  sort substrate lists
+#                  sort substrate lists; don't overwrite the annotation file when the search results are empty or
+#                  yield too few annotated entities; send a 'RCSB-PDB-ETL' User-Agent with source data requests;
+#                  log failed source fetches (e.g., HTTP 403) as errors with the source URL
 ##
 """
 Accessors and generators for plastic-degrading enzyme annotation data (sourced from PAZy and PlasticDB).
@@ -47,6 +49,8 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         # Source locators (remote URLs by default; local file paths are also accepted by FileUtil.get())
         self.__pazyUrl = kwargs.get("pazyUrl", "https://api.pazy.eu/api/proteins/json/?format=json")
         self.__plasticDBUrl = kwargs.get("plasticDBUrl", "https://plasticdb.org/static/PlasticDB.fasta")
+        userAgent = kwargs.get("userAgent", "RCSB-PDB-ETL")
+        self.__headers = {"User-Agent": userAgent} if userAgent else None
         #
         self.__mU = MarshalUtil(workPath=self.__dirPath)
         self.__fU = FileUtil()
@@ -197,7 +201,8 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
 
         Args:
             sequenceMatchFilePath (str): sequence match output file path (e.g., plastic-enzyme-vs-pdbprent-filtered-results.json)
-            minCount (int, optional): minimum number of PAZy and PlasticDB source records required. Defaults to 100.
+            minCount (int, optional): minimum number of PAZy and PlasticDB source records required, and minimum number of
+                                      annotated entities required to replace the cached annotation file. Defaults to 100.
 
         Returns:
             bool: True for success or False otherwise
@@ -205,9 +210,9 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         if not self.testSourceCache(minCount=minCount):
             logger.warning("Skipping build of plastic enzyme annotations because the source data is missing")
             return False
-        mD = self.__mU.doImport(sequenceMatchFilePath, fmt="json")
-        if mD is None:
-            logger.error("Unable to read sequence match file %r", sequenceMatchFilePath)
+        mD = self.__mU.doImport(sequenceMatchFilePath, fmt="json") if self.__mU.exists(sequenceMatchFilePath) else None
+        if not mD:
+            logger.error("Missing or empty sequence match file %r - keeping the existing annotation data", sequenceMatchFilePath)
             return False
         #
         # {entityId: {(sourceDb, enzymeId): annotation dict}}
@@ -252,6 +257,9 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         for rcsbEntityId, oD in eD.items():
             aD[rcsbEntityId] = sorted(oD.values(), key=lambda k: (-k["seq_id_pct"], -k["bit_score"], k["source_db"], k["annotation_id"]))
         #
+        if len(aD) < minCount:
+            logger.error("Too few annotated entities (%d < %d) - keeping the existing annotation data", len(aD), minCount)
+            return False
         tS = datetime.datetime.now().isoformat()
         self.__annotD = {"version": "1.0", "created": tS, "annotations": aD}
         ok = self.__mU.doExport(self.__getAnnotationDataPath(), self.__annotD, fmt="json", indent=3)
@@ -277,8 +285,8 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         """
         rawPath = os.path.join(self.__dirPath, "pazy_proteins.json")
         logger.info("Fetching PAZy data from %r to %r", self.__pazyUrl, rawPath)
-        if not self.__fU.get(self.__pazyUrl, rawPath):
-            logger.error("Fetching failed for PAZy data")
+        if not self.__fU.get(self.__pazyUrl, rawPath, headers=self.__headers):
+            logger.error("Fetching PAZy data from %r failed (site down or blocking requests, e.g., HTTP 403 - see the HTTP status above)", self.__pazyUrl)
             return False
         rawD = self.__mU.doImport(rawPath, fmt="json")
         self.__fU.remove(rawPath)
@@ -345,8 +353,8 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         """
         rawPath = os.path.join(self.__dirPath, "PlasticDB.fasta")
         logger.info("Fetching PlasticDB data from %r to %r", self.__plasticDBUrl, rawPath)
-        if not self.__fU.get(self.__plasticDBUrl, rawPath):
-            logger.error("Fetching failed for PlasticDB data")
+        if not self.__fU.get(self.__plasticDBUrl, rawPath, headers=self.__headers):
+            logger.error("Fetching PlasticDB data from %r failed (site down or blocking requests, e.g., HTTP 403 - see the HTTP status above)", self.__plasticDBUrl)
             return False
         # The "default" comment style returns {header (without ">"): {"sequence": ...}}
         sD = self.__mU.doImport(rawPath, fmt="fasta", commentStyle="default")

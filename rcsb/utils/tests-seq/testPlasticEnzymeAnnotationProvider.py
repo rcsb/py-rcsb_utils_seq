@@ -111,6 +111,16 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertFalse(peP.testSourceCache(minCount=0))
 
+    def testFetchFailure(self):
+        """A failed source fetch is logged as an error and doesn't write the source data."""
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, pazyUrl=os.path.join(self.__workPath, "missing.json"), plasticDBUrl=self.__plasticDBPath)
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="ERROR") as cm:
+            ok = peP.fetchPlasticEnzymeData(minCount=1)
+        self.assertFalse(ok)
+        self.assertTrue(any("Fetching PAZy data from" in msg for msg in cm.output))
+        self.assertIsNone(peP.getEnzyme("PAZy", "15"))
+        self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
+
     def testExportFasta(self):
         """FASTA generation and header format."""
         peP = self.__getTestProvider()
@@ -168,6 +178,14 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertTrue(peP.testCache(minCount=1))
         self.assertFalse(peP.testCache(minCount=100))
         #
+        # Empty or missing search results don't overwrite the existing annotation data
+        emptyPath = os.path.join(self.__workPath, "empty-results.json")
+        with open(emptyPath, "w", encoding="utf-8") as ofh:
+            json.dump({}, ofh)
+        self.assertFalse(peP.buildAnnotationList(emptyPath, minCount=1))
+        self.assertFalse(peP.buildAnnotationList(os.path.join(self.__workPath, "missing.json"), minCount=1))
+        self.assertFalse(peP.buildAnnotationList(matchPath, minCount=100))
+        #
         # Cache reload
         peP = self.__getTestProvider(useCache=True)
         self.assertTrue(peP.testCache(minCount=1))
@@ -191,6 +209,7 @@ def suitePlasticEnzymeAnnotationProvider():
     suiteSelect = unittest.TestSuite()
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchAndStandardize"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchMinCount"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFailure"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testExportFasta"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testBuildAnnotationList"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchLive"))
