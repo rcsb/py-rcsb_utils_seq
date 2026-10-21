@@ -3,7 +3,9 @@
 #  Date:           28-May-2021 jdw
 #
 #  Updated:
-#
+#  13-Jul-2026 dwp Add getGlycanIdentifier() to look up a glycan identifier by entry ID (short or extended) and entity ID
+#  20-Oct-2026 dwp Document that identifier map keys follow the entity ID format of the source database
+#                  (replacing outdated extended ID TODOs)
 ##
 """
 Accessors for glycan mapped annotations.
@@ -29,7 +31,12 @@ class GlycanProvider(StashableBase):
                     stash/glycan.tar.gz
 
         Note: This provider supports the delivery of pre-generated data from
-                   rcsb.exdb.branched/GlycanProvider
+                   rcsb.exdb.branch/GlycanProvider
+
+        The identifier map is keyed by branched entity ID, taken as-is from pdbx_core_branched_entity.rcsb_id in the
+        database the data was built from. Keys therefore follow that database's ID format: short IDs in upper case
+        (e.g., '1ABC_2') or extended IDs in lower case (e.g., 'pdb_00001abc_2'). No change is needed here or in the
+        data prep for the transition to extended IDs.
     """
 
     def __init__(self, **kwargs):
@@ -64,6 +71,32 @@ class GlycanProvider(StashableBase):
         except Exception as e:
             logger.error("Failing with %r", str(e))
         return {}
+
+    def getGlycanIdentifier(self, entryId, entityIdSuffix, idTypeFilter):
+        """Get the Glycan identifier for the given ID type (e.g., "glyTouCanId").
+
+        Args:
+            entryId (str): entry ID, either short (4 character) or extended (12 character). Lookups are case-sensitive,
+                           so pass it in the case stored in the identifier map: upper case for short IDs (e.g., '1ABC'),
+                           lower case for extended IDs (e.g., 'pdb_00001abc')
+            entityIdSuffix (str): entity ID suffix (e.g., "1", "2", ...)
+            idTypeFilter (str): type of ID to return (e.g., "glyTouCanId")
+
+        Returns:
+            str: Gly ID of the provided ID type, or None if not found
+        """
+        gId = None
+        glyIdD = self.getIdentifiers()
+        try:
+            entityId = f"{entryId}_{entityIdSuffix}"
+            gIdD = glyIdD.get(entityId, None)
+            if gIdD and idTypeFilter in gIdD:
+                gId = gIdD.get(idTypeFilter, None)
+            if gIdD is not None:
+                logger.debug(f"Got gId {gId} from entity ID {entityId}")
+        except Exception:
+            pass
+        return gId
 
     def __getMappingFilePath(self, fmt="json"):
         baseFileName = "branched_entity_glycan_identifier_map"
