@@ -6,6 +6,7 @@
 #  13-Jul-2026 dwp Add getGlycanIdentifier() to look up a glycan identifier by entry ID (short or extended) and entity ID
 #  20-Oct-2026 dwp Document that identifier map keys follow the entity ID format of the source database
 #                  (replacing outdated extended ID TODOs)
+#  26-Oct-2026 dwp Use lazy % formatting in a debug log message (pylint W1203)
 ##
 """
 Accessors for glycan mapped annotations.
@@ -93,7 +94,7 @@ class GlycanProvider(StashableBase):
             if gIdD and idTypeFilter in gIdD:
                 gId = gIdD.get(idTypeFilter, None)
             if gIdD is not None:
-                logger.debug(f"Got gId {gId} from entity ID {entityId}")
+                logger.debug("Got gId %s from entity ID %s", gId, entityId)
         except Exception:
             pass
         return gId
