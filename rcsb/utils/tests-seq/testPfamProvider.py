@@ -5,6 +5,7 @@
 #
 # Update:
 #  26-May-2021 jdw add test for Pfam mapping methods
+#  26-Oct-2026 dwp Add test for Pfam mapping source entry IDs (fails once the SIFTS Pfam mapping uses extended PDB IDs)
 #
 ##
 """
@@ -29,6 +30,11 @@ TOPDIR = os.path.dirname(os.path.dirname(HERE))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(module)s.%(funcName)s: %(message)s")
 logger = logging.getLogger()
+
+
+def getNonShortEntryIds(entryIds):
+    """Return the entry IDs that aren't short (4-character) PDB IDs, e.g. extended (12-character) PDB IDs."""
+    return sorted({eId for eId in entryIds if len(eId) != 4})
 
 
 class PfamProviderTests(unittest.TestCase):
@@ -70,11 +76,20 @@ class PfamProviderTests(unittest.TestCase):
         logger.debug("mL (%d)", len(mL))
         self.assertGreaterEqual(len(mL), 2)
 
+    def testPfamSourceEntryIds(self):
+        """Check that the Pfam mapping source data (SIFTS pdb_pfam_mapping.tsv) still uses short (4-character) PDB IDs"""
+        pP = PfamProvider(cachePath=self.__cachePath, useCache=False)
+        self.assertTrue(pP.testCache())
+        # Fails once the source data uses extended PDB IDs; then update this package and rcsb.utils.dictionary for them
+        badL = getNonShortEntryIds(pP._PfamProvider__pfamMapD)  # pylint: disable=protected-access
+        self.assertEqual(badL, [], "Pfam mapping source data has entry IDs that aren't 4-char PDB IDs: %r" % badL[:10])
+
 
 def pfamCacheSuite():
     suiteSelect = unittest.TestSuite()
     suiteSelect.addTest(PfamProviderTests("testPfamCache"))
     suiteSelect.addTest(PfamProviderTests("testPfamCacheFallBack"))
+    suiteSelect.addTest(PfamProviderTests("testPfamSourceEntryIds"))
     return suiteSelect
 
 
