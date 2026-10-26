@@ -5,6 +5,7 @@
 #
 # Update:
 #  20-Oct-2026 dwp Add test for loading a cache built by older code (uppercase entry ID keys)
+#  26-Oct-2026 dwp Add test for SIFTS source entry IDs (fails once SIFTS uses extended PDB IDs)
 #
 #
 ##
@@ -25,6 +26,7 @@ import shutil
 import time
 import unittest
 
+from rcsb.utils.io.FileUtil import FileUtil
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.SiftsSummaryProvider import SiftsSummaryProvider
 
@@ -33,6 +35,11 @@ TOPDIR = os.path.dirname(os.path.dirname(HERE))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(module)s.%(funcName)s: %(message)s")
 logger = logging.getLogger()
+
+
+def getNonShortEntryIds(entryIds):
+    """Return the entry IDs that aren't short (4-character) PDB IDs, e.g. extended (12-character) PDB IDs."""
+    return sorted({eId for eId in entryIds if len(eId) != 4})
 
 
 class SiftsSummaryProviderTests(unittest.TestCase):
@@ -124,12 +131,30 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         logger.info("SIFTS entry count %d", eCount)
         self.assertGreaterEqual(eCount, entrySaveLimit)
 
+    def testSiftsSourceEntryIds(self):
+        """Check that the SIFTS summary source data (current EBI SIFTS files) still uses short (4-character) PDB IDs.
+
+        Production reads the same files from an rsync mirror. Builds the abbreviated ("TEST") summary, as production does,
+        from the two files it reads.
+        """
+        srcDirPath = os.path.join(HERE, "test-output", "sifts-source-data")
+        cachePath = os.path.join(HERE, "test-output", "CACHE-sifts-source")
+        fU = FileUtil()
+        for fn in ["pdb_chain_uniprot.csv.gz", "pdb_chain_pfam.csv.gz"]:
+            self.assertTrue(fU.get("https://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/csv/" + fn, os.path.join(srcDirPath, fn)))
+        su = SiftsSummaryProvider(srcDirPath=srcDirPath, cachePath=cachePath, useCache=False, abbreviated="TEST")
+        self.assertTrue(su.testCache())
+        # Fails once the source data uses extended PDB IDs; then update this package and rcsb.utils.dictionary for them
+        badL = getNonShortEntryIds(su.getEntries())
+        self.assertEqual(badL, [], "SIFTS source data has entry IDs that aren't 4-char PDB IDs: %r" % badL[:10])
+
 
 def readSiftsInfo():
     suiteSelect = unittest.TestSuite()
     # suiteSelect.addTest(SiftsSummaryProviderTests("testWriteSiftsSummaryCacheJson"))
     suiteSelect.addTest(SiftsSummaryProviderTests("testWriteReadSiftsSummaryCache"))
     suiteSelect.addTest(SiftsSummaryProviderTests("testReadLegacySiftsSummaryCache"))
+    suiteSelect.addTest(SiftsSummaryProviderTests("testSiftsSourceEntryIds"))
     return suiteSelect
 
 
