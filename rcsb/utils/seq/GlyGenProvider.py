@@ -9,6 +9,7 @@
 #  20-Aug-2024 dwp Adjust fetch method following certificate changes
 #  23-Dec-2025 dwp Update from version 2.2.1 to 2.10.1;
 #                  Switch from using UrlRequestUtil to FileUtil, to allow for retries and timeouts
+#  15-Sep-2026 dwp Update to latest version (2.11.1)
 ##
 """
   Fetch glycans and glycoproteins available in the GlyGen.org resource.
@@ -43,7 +44,7 @@ class GlyGenProvider(StashableBase):
         super(GlyGenProvider, self).__init__(cachePath, [dirName])
         useCache = kwargs.get("useCache", True)
         #
-        self.__version = "2.10.1"
+        self.__version = "2.11.1"
         baseUrl = kwargs.get("glygenBaseUrl", f"https://data.glygen.org/ln2data/releases/data/v-{self.__version}/reviewed/")
         # baseSparqlUrl = kwargs.get("glygenBaseSparqlUrl", "http://sparql.glygen.org:8880/sparql")
         fallbackUrl = kwargs.get("glygenFallbackUrl", "https://raw.githubusercontent.com/rcsb/py-rcsb_exdb_assets/master/fall_back/glygen/")

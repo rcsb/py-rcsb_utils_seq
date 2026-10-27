@@ -6,6 +6,12 @@
 # Updates:
 #  06-Oct-2019 jdw add GO as part of abbreviated mappings
 #  19-Sep-2023 dwp RO-4033: When using SIFTS alignment data, don't mix and match segments from different chains of the same entity
+#  15-Sep-2026 dwp RO-5076: Normalize entry ID keys to lowercase on both cache build and lookup, so that short and
+#                  extended PDB IDs may be supplied in any case. NOTE: requires regeneration of the SIFTS summary cache file,
+#                  although this should happen automatically
+#  20-Oct-2026 dwp RO-5076: Also normalize entry ID keys to lowercase when loading an existing cache file, since a cache
+#                  built by older code (uppercase keys, e.g. restored from the stash) is reused as-is and every lookup
+#                  would otherwise miss
 ##
 """
 Utilities to manage access to SIFTS summary mapping data.
@@ -68,8 +74,8 @@ class SiftsSummaryProvider(StashableBase):
             return uL
         try:
             for entryId in entryIdList:
-                if entryId in self.__ssD:
-                    aD = self.__ssD[entryId]
+                if entryId.lower() in self.__ssD:
+                    aD = self.__ssD[entryId.lower()]
                     for _, iD in aD.items():
                         if idType in iD:
                             uL.extend(iD[idType])
@@ -81,7 +87,7 @@ class SiftsSummaryProvider(StashableBase):
     def getAlignmentCount(self, entryId, authAsymId):
         num = 0
         try:
-            num = len(self.__ssD[entryId][authAsymId]["UNPAL"])
+            num = len(self.__ssD[entryId.lower()][authAsymId]["UNPAL"])
         except Exception:
             pass
         return num
@@ -89,7 +95,7 @@ class SiftsSummaryProvider(StashableBase):
     def getAlignments(self, entryId, authAsymId):
         aL = []
         try:
-            aL = self.__ssD[entryId][authAsymId]["UNPAL"]
+            aL = self.__ssD[entryId.lower()][authAsymId]["UNPAL"]
         except Exception:
             pass
         return aL
@@ -97,8 +103,8 @@ class SiftsSummaryProvider(StashableBase):
     def getSeqAlignObjList(self, entryId, authAsymId):
         saoL = []
         try:
-            # aL = self.__ssD[entryId][authAsymId]["UNPAL"]
-            saoL = [SeqAlign("SIFTS", **sa) for sa in self.__ssD[entryId][authAsymId]["UNPAL"]]
+            # aL = self.__ssD[entryId.lower()][authAsymId]["UNPAL"]
+            saoL = [SeqAlign("SIFTS", **sa) for sa in self.__ssD[entryId.lower()][authAsymId]["UNPAL"]]
         except Exception:
             pass
         return saoL
@@ -138,7 +144,7 @@ class SiftsSummaryProvider(StashableBase):
         aL = []
         try:
             if idType in ["UNPAL", "UNPID", "PFAMID", "GOID", "IPROID", "TAXID", "CATHID", "SCOPID", "ECID"]:
-                aL = self.__ssD[entryId][authAsymId][idType]
+                aL = self.__ssD[entryId.lower()][authAsymId][idType]
                 logger.debug("sifts returns entryId %r authasymid %r idtype %r result %r", entryId, authAsymId, idType, aL)
             else:
                 logger.error("Unsupported SIFTS idType %r", idType)
@@ -149,7 +155,7 @@ class SiftsSummaryProvider(StashableBase):
     def getTaxIds(self, entryId, authAsymId):
         tL = []
         try:
-            tL = self.__ssD[entryId][authAsymId]["TAXID"]
+            tL = self.__ssD[entryId.lower()][authAsymId]["TAXID"]
         except Exception:
             pass
         return tL
@@ -169,6 +175,7 @@ class SiftsSummaryProvider(StashableBase):
         useCache = kwargs.get("useCache", True)
         entrySaveLimit = kwargs.get("entrySaveLimit", None)
         abbreviated = str(kwargs.get("abbreviated", "TEST")).upper()
+        logger.info("Rebuilding SIFTS summary cache with srcDirPath %s (abbreviated %s)", srcDirPath, abbreviated)
         #
         # cacheDirPath = kwargs.get("cacheDirPath", None)
         cacheDirPath = self.__cacheDirPath
@@ -179,8 +186,17 @@ class SiftsSummaryProvider(StashableBase):
         ssD = {}
         try:
             if useCache and os.access(saveFilePath, os.R_OK):
+                # Runs for CoreDataLoading (initial prep)
+                # accesses data from CACHE - Using existing SIFTS summary cache saveFilePath /CACHE/sifts-summary/sifts-summary-py3.pic
                 ssD = mU.doImport(saveFilePath, **cacheKwargs)
+                logger.info("Using existing SIFTS summary cache saveFilePath %s", saveFilePath)
+                # Caches built before 15-Sep-2026 have uppercase entry ID keys; lookups are lowercase
+                if ssD and any(k != k.lower() for k in ssD):
+                    logger.warning("Normalizing entry ID keys to lowercase in SIFTS summary cache %s (built by older code)", saveFilePath)
+                    ssD = {k.lower(): v for k, v in ssD.items()}
             else:
+                # Runs for UpdateDictMethodResources and CoreCacheDataBuilding
+                # accessing data from SIFTS_SUMMARY_DATA_PATH (I think?)
                 if not srcDirPath:
                     logger.error("Missing SIFTS source path details")
                     return ssD
@@ -196,6 +212,7 @@ class SiftsSummaryProvider(StashableBase):
 
     def __getSummaryMapping(self, siftsSummaryDirPath, abbreviated="PROD"):
         """ """
+        logger.info("Getting SIFTS summary mapping with siftsSummaryDirPath %r", siftsSummaryDirPath)
 
         uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "pdb_chain_uniprot.csv.gz")
         # _, uSeqD = self.__getUniprotChainMapping(siftsSummaryDirPath, "uniprot_segments_observed.csv.gz")
@@ -285,7 +302,7 @@ class SiftsSummaryProvider(StashableBase):
             evidenceCode = rowD["EVIDENCE"]
             goId = rowD["GO_ID"]
             dD = {"GO_ID": goId, "EV": evidenceCode, "PROV": prov}
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(dD)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(dD)
         logger.info("GO data for %d entries", len(tD))
         return tD
 
@@ -316,7 +333,7 @@ class SiftsSummaryProvider(StashableBase):
                 logger.warning("Skipping bad GO record (%d) %s %s %r", len(rowL), entryId, chainId, goId)
                 errCount += 1
                 continue
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(goId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(goId)
             okCount += 1
 
         logger.info("GO data for %d entries", len(tD))
@@ -337,7 +354,7 @@ class SiftsSummaryProvider(StashableBase):
             if not interProId.startswith("IPR"):
                 logger.warning("Skipping bad InterPro ID %s %s %r %r", entryId, chainId, interProId, rowD)
                 continue
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(interProId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(interProId)
         logger.info("InterPro data for %d entries", len(tD))
         return tD
 
@@ -355,7 +372,7 @@ class SiftsSummaryProvider(StashableBase):
             if not pfamId.startswith("PF"):
                 logger.warning("Skipping bad pfam ID %s %s %r %r", entryId, chainId, pfamId, rowD)
                 continue
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(pfamId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(pfamId)
         logger.info("PFAM data for %d entries", len(tD))
         return tD
 
@@ -370,7 +387,7 @@ class SiftsSummaryProvider(StashableBase):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             ecId = rowD["EC_NUMBER"]
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(ecId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(ecId)
         logger.info("EC data for %d entries", len(tD))
         return tD
 
@@ -385,7 +402,7 @@ class SiftsSummaryProvider(StashableBase):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             cathId = rowD["CATH_ID"]
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(cathId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(cathId)
         logger.info("CATH data for %d entries", len(tD))
         return tD
 
@@ -401,7 +418,7 @@ class SiftsSummaryProvider(StashableBase):
             chainId = rowD["CHAIN"]
             scopId = rowD["SCOP_ID"]
             #
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, []).append(scopId)
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, []).append(scopId)
         #
         logger.info("SCOP data for %d entries", len(tD))
         return tD
@@ -422,7 +439,7 @@ class SiftsSummaryProvider(StashableBase):
             entryId = rowD["PDB"]
             chainId = rowD["CHAIN"]
             taxId = rowD["TAX_ID"]
-            tD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).update({taxId: True})
+            tD.setdefault(entryId.lower(), {}).setdefault(chainId, {}).update({taxId: True})
         #
         logger.info("Taxonomy for %d entries", len(tD))
         return tD
@@ -452,8 +469,8 @@ class SiftsSummaryProvider(StashableBase):
             # dD = {"UP": unpId, "BG": entitySeqBeg, "ND": entitySeqEnd, "AUBG": authSeqBeg, "AUND": authSeqEnd, "UBG": unpSeqBeg, "UND": unpSeqEnd}
             # dD = {"UP": unpId, "BG": entitySeqBeg, "UBG": unpSeqBeg, "LEN": entityLength}
             dD = {"UP": unpId, "BG": entitySeqBeg, "LEN": entityLength, "UBG": unpSeqBeg, "UND": unpSeqEnd}
-            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPAL", []).append(dD)
-            uD.setdefault(entryId.upper(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
+            uD.setdefault(entryId.lower(), {}).setdefault(chainId, {}).setdefault("UNPAL", []).append(dD)
+            uD.setdefault(entryId.lower(), {}).setdefault(chainId, {}).setdefault("UNPID", []).append(unpId)
             #
         logger.info("UniProt mapping for %d entries", len(uD))
         # -----
@@ -462,6 +479,7 @@ class SiftsSummaryProvider(StashableBase):
     def __readSiftsSummaryFile(self, filePath, rowFormat="dict"):
         """Read input SIFTS summary file and return a list of dictionaries."""
         try:
+            logger.info("reading SIFTS file %r", filePath)
             mU = MarshalUtil()
             cL = mU.doImport(filePath, fmt="csv", rowFormat=rowFormat)
             logger.debug("Container list %d", len(cL))

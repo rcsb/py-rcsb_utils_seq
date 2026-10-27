@@ -81,3 +81,7 @@
   23-Dec-2025    V0.86 Update GlyGen provider from version 2.2.1 to 2.10.1;
                        Switch GlyGen from using UrlRequestUtil to FileUtil
   23-Dec-2025    V0.87 Decrease timeout of GlyGen
+  20-Oct-2026    V0.88 Support extended PDB IDs (RO-5076): normalize SIFTS summary entry ID keys to lowercase on
+                       cache build, cache load, and lookup, so short and extended IDs may be supplied in any case;
+                       add GlycanProvider.getGlycanIdentifier() for short or extended entry IDs;
+                       update GlyGenProvider to GlyGen version 2.11.1
