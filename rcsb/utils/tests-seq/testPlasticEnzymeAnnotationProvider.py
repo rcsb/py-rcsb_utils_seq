@@ -4,6 +4,10 @@
 #
 # Updates:
 #  26-Oct-2026 dwp Add testReloadMalformedCache
+#  27-Oct-2026 dwp Replace the opt-in live fetch test with tests that always check that the PAZy and PlasticDB
+#                  source data are accessible and usable (each fails if its source can't be fetched); start each test
+#                  from an empty cache; add tests for the cached-data and stash fallbacks, fetching with useCache,
+#                  and the TEMP local raw source files
 ##
 """
 Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
@@ -12,7 +16,9 @@ Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
 import json
 import logging
 import os
+import shutil
 import unittest
+from unittest import mock
 
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.PlasticEnzymeAnnotationProvider import PlasticEnzymeAnnotationProvider
@@ -59,6 +65,7 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
     def setUp(self):
         self.__workPath = os.path.join(HERE, "test-output", "plastic-enzyme")
         self.__cachePath = os.path.join(self.__workPath, "CACHE")
+        shutil.rmtree(self.__cachePath, ignore_errors=True)
         self.__mU = MarshalUtil(workPath=self.__workPath)
         self.__mU.mkdir(self.__workPath)
         self.__pazyPath = os.path.join(self.__workPath, "pazy-test.json")
@@ -92,6 +99,8 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         #
         # PlasticDB: all header fields parsed; records with unexpected headers are skipped
         self.assertIsNone(peP.getEnzyme("PlasticDB", "00069"))
+        # Downloaded source files are removed after parsing (and never left as a PlasticDB.fasta for the TEMP local-file check)
+        self.assertEqual(sorted(os.listdir(os.path.join(self.__cachePath, "plastic-enzyme-annotations"))), ["pazy-select-data.json", "plasticdb-select-data.json"])
         pD = peP.getEnzyme("PlasticDB", "00001")
         self.assertEqual(pD["name"], "PHB depolymerase")
         self.assertEqual(pD["organism_scientific_name"], "Ralstonia pickettii")
@@ -120,6 +129,100 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertTrue(any("Fetching PAZy data from" in msg for msg in cm.output))
         self.assertIsNone(peP.getEnzyme("PAZy", "15"))
         self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
+        self.assertTrue(any("no stash configuration given" in msg for msg in cm.output))
+        self.assertFalse([fn for fn in os.listdir(os.path.join(self.__cachePath, "plastic-enzyme-annotations")) if fn.endswith(".download")])
+
+    def testFetchFallbackToCache(self):
+        """A source that can't be fetched keeps its existing cached data (without a stash restore)."""
+        self.assertTrue(self.__getTestProvider().fetchPlasticEnzymeData(minCount=1))
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, pazyUrl=os.path.join(self.__workPath, "missing.json"), plasticDBUrl=self.__plasticDBPath)
+        with mock.patch.object(PlasticEnzymeAnnotationProvider, "restore") as mRestore:
+            ok = peP.fetchPlasticEnzymeData(minCount=1, cfgOb="cfgOb", configName="configName")
+        self.assertFalse(ok)
+        mRestore.assert_not_called()
+        self.assertEqual(peP.getEnzyme("PAZy", "15")["sequence"], SEQ_A)
+        self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
+        self.assertTrue(peP.testSourceCache(minCount=1))
+
+    def testFetchFallbackToStash(self):
+        """A source that can't be fetched or found in the cache is restored from the stash, without replacing the freshly fetched source."""
+        dirPath = os.path.join(self.__cachePath, "plastic-enzyme-annotations")
+
+        def fakeRestore(cfgOb, configName, remotePrefix=None, useStash=True, useGit=False):
+            # The stashed backup holds older data for both sources
+            self.assertEqual((cfgOb, configName, remotePrefix, useStash, useGit), ("cfgOb", "configName", "A", True, False))
+            for fileName, sourceDb, enzymeId in [("pazy-select-data.json", "PAZy", "99"), ("plasticdb-select-data.json", "PlasticDB", "99999")]:
+                eD = {"source_db": sourceDb, "name": "stashed", "substrates": ["PET"], "sequence": SEQ_A}
+                self.__mU.doExport(os.path.join(dirPath, fileName), {"version": "1.0", "created": "stash", "data": {enzymeId: eD, enzymeId + "0": eD}}, fmt="json")
+            return True
+
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, pazyUrl=os.path.join(self.__workPath, "missing.json"), plasticDBUrl=self.__plasticDBPath)
+        with mock.patch.object(PlasticEnzymeAnnotationProvider, "restore", side_effect=fakeRestore) as mRestore:
+            ok = peP.fetchPlasticEnzymeData(minCount=1, cfgOb="cfgOb", configName="configName", remotePrefix="A")
+        self.assertFalse(ok)
+        mRestore.assert_called_once()
+        # PAZy comes from the stash; PlasticDB is the freshly fetched data (not the stashed copy)
+        self.assertEqual(peP.getEnzyme("PAZy", "99")["name"], "stashed")
+        self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
+        self.assertIsNone(peP.getEnzyme("PlasticDB", "99999"))
+        self.assertTrue(peP.testSourceCache(minCount=1))
+
+    def testFetchUseCache(self):
+        """With useCache, valid cached source data is used without fetching; without it, the sources are fetched."""
+        self.assertTrue(self.__getTestProvider().fetchPlasticEnzymeData(minCount=1))
+        missingKw = {"pazyUrl": os.path.join(self.__workPath, "missing.json"), "plasticDBUrl": os.path.join(self.__workPath, "missing.fasta")}
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, **missingKw)
+        with self.assertNoLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="ERROR"):
+            self.assertTrue(peP.fetchPlasticEnzymeData(minCount=1, useCache=True))
+        self.assertIsNotNone(peP.getEnzyme("PAZy", "15"))
+        self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
+        # Cached data with too few records isn't used (and here can't be replaced, since the sources are missing)
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="ERROR"):
+            self.assertFalse(peP.fetchPlasticEnzymeData(minCount=100, useCache=True))
+        # Without useCache the sources are always fetched (here failing, so the cached data is kept)
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="ERROR"):
+            self.assertFalse(peP.fetchPlasticEnzymeData(minCount=1))
+        self.assertTrue(peP.testSourceCache(minCount=1))
+
+    def testTempLocalSourceFiles(self):
+        """TEMP: with useCache, raw source files already in the cache directory are used instead of fetching, and kept."""
+        dirPath = os.path.join(self.__cachePath, "plastic-enzyme-annotations")
+        self.__mU.mkdir(dirPath)
+        shutil.copyfile(self.__pazyPath, os.path.join(dirPath, "pazy_proteins.json"))
+        shutil.copyfile(self.__plasticDBPath, os.path.join(dirPath, "PlasticDB.fasta"))
+        missingKw = {"pazyUrl": os.path.join(self.__workPath, "missing.json"), "plasticDBUrl": os.path.join(self.__workPath, "missing.fasta")}
+        # Without useCache, the raw files are ignored and the sources are fetched (here failing)
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, **missingKw)
+        self.assertFalse(peP.fetchPlasticEnzymeData(minCount=1))
+        self.assertFalse(peP.testSourceCache(minCount=0))
+        # With useCache, both raw files are used and left in place
+        self.assertTrue(peP.fetchPlasticEnzymeData(minCount=1, useCache=True))
+        self.assertEqual(peP.getEnzyme("PAZy", "15")["sequence"], SEQ_A)
+        self.assertEqual(peP.getEnzyme("PlasticDB", "00001")["name"], "PHB depolymerase")
+        self.assertTrue(os.path.exists(os.path.join(dirPath, "pazy_proteins.json")))
+        self.assertTrue(os.path.exists(os.path.join(dirPath, "PlasticDB.fasta")))
+
+    def testFetchStashKeepsCachedData(self):
+        """A stash restore for one source keeps the valid cached data in use for the other source."""
+        dirPath = os.path.join(self.__cachePath, "plastic-enzyme-annotations")
+        self.assertTrue(self.__getTestProvider().fetchPlasticEnzymeData(minCount=1))
+        os.remove(os.path.join(dirPath, "plasticdb-select-data.json"))
+
+        def fakeRestore(cfgOb, configName, remotePrefix=None, useStash=True, useGit=False):
+            _ = (cfgOb, configName, remotePrefix, useStash, useGit)
+            for fileName, sourceDb, enzymeId in [("pazy-select-data.json", "PAZy", "99"), ("plasticdb-select-data.json", "PlasticDB", "99999")]:
+                eD = {"source_db": sourceDb, "name": "stashed", "substrates": ["PET"], "sequence": SEQ_A}
+                self.__mU.doExport(os.path.join(dirPath, fileName), {"version": "1.0", "created": "stash", "data": {enzymeId: eD, enzymeId + "0": eD}}, fmt="json")
+            return True
+
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, pazyUrl=self.__pazyPath, plasticDBUrl=os.path.join(self.__workPath, "missing.fasta"))
+        with mock.patch.object(PlasticEnzymeAnnotationProvider, "restore", side_effect=fakeRestore) as mRestore:
+            self.assertFalse(peP.fetchPlasticEnzymeData(minCount=1, useCache=True, cfgOb="cfgOb", configName="configName"))
+        mRestore.assert_called_once()
+        # PAZy keeps its cached data (not the stashed copy); PlasticDB comes from the stash
+        self.assertIsNotNone(peP.getEnzyme("PAZy", "15"))
+        self.assertIsNone(peP.getEnzyme("PAZy", "99"))
+        self.assertEqual(peP.getEnzyme("PlasticDB", "99999")["name"], "stashed")
 
     def testExportFasta(self):
         """FASTA generation and header format."""
@@ -211,13 +314,31 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertIsNone(peP.getAnnotation("7DZT_1"))
         self.assertIsNone(peP.getEnzyme("PAZy", "15"))
 
-    @unittest.skipUnless(os.environ.get("PLASTIC_ENZYME_LIVE_TEST"), "Set PLASTIC_ENZYME_LIVE_TEST to fetch the live PAZy and PlasticDB data")
-    def testFetchLive(self):
-        """Fetch the live PAZy and PlasticDB data."""
-        peP = PlasticEnzymeAnnotationProvider(cachePath=os.path.join(self.__workPath, "CACHE-live"), useCache=False)
-        self.assertTrue(peP.fetchPlasticEnzymeData())
-        self.assertTrue(peP.testSourceCache())
-        self.assertTrue(peP.exportFasta())
+    def __checkLiveSource(self, sourceDb, urlKey, dataFileName, minCount=100):
+        """Fetch one source from its default (live) URL, and the other from its local test file, and check that the live
+        source returns enough usable records."""
+        cachePath = os.path.join(self.__workPath, "CACHE-live-%s" % sourceDb)
+        shutil.rmtree(cachePath, ignore_errors=True)
+        kwargs = {"pazyUrl": self.__pazyPath, "plasticDBUrl": self.__plasticDBPath}
+        kwargs.pop(urlKey)
+        peP = PlasticEnzymeAnnotationProvider(cachePath=cachePath, useCache=False, **kwargs)
+        ok = peP.fetchPlasticEnzymeData(minCount=1)
+        self.assertTrue(ok, "%s source data could not be fetched (see the error logged above)" % sourceDb)
+        dataD = self.__mU.doImport(os.path.join(cachePath, "plastic-enzyme-annotations", dataFileName), fmt="json")["data"]
+        self.assertGreater(len(dataD), minCount, "too few %s records" % sourceDb)
+        for enzymeId, eD in dataD.items():
+            self.assertEqual(eD["source_db"], sourceDb)
+            self.assertTrue(eD["sequence"] and eD["name"], "%s %s is missing a sequence or name" % (sourceDb, enzymeId))
+        self.assertTrue(any(eD["substrates"] for eD in dataD.values()), "no %s records have substrates" % sourceDb)
+        self.assertTrue(peP.exportFasta(os.path.join(cachePath, "plastic-enzyme-sequences.fa")))
+
+    def testPazySourceAccess(self):
+        """The live PAZy source data is accessible and usable (fails if PAZy can't be fetched)."""
+        self.__checkLiveSource("PAZy", "pazyUrl", "pazy-select-data.json")
+
+    def testPlasticDBSourceAccess(self):
+        """The live PlasticDB source data is accessible and usable (fails if PlasticDB can't be fetched)."""
+        self.__checkLiveSource("PlasticDB", "plasticDBUrl", "plasticdb-select-data.json")
 
 
 def suitePlasticEnzymeAnnotationProvider():
@@ -225,10 +346,16 @@ def suitePlasticEnzymeAnnotationProvider():
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchAndStandardize"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchMinCount"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFailure"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFallbackToCache"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFallbackToStash"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchUseCache"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testTempLocalSourceFiles"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchStashKeepsCachedData"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testExportFasta"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testBuildAnnotationList"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testReloadMalformedCache"))
-    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchLive"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testPazySourceAccess"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testPlasticDBSourceAccess"))
     return suiteSelect
 
 
