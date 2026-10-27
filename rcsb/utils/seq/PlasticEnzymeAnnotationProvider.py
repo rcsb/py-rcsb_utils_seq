@@ -268,9 +268,7 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         tS = datetime.datetime.now().isoformat()
         self.__annotD = {"version": "1.0", "created": tS, "annotations": aD}
         ok = self.__mU.doExport(self.__getAnnotationDataPath(), self.__annotD, fmt="json", indent=3)
-        logger.info(
-            "Built plastic enzyme annotations (status %r) for %d entities (%d annotations)", ok, len(aD), sum(len(v) for v in aD.values())
-        )
+        logger.info("Built plastic enzyme annotations (status %r) for %d entities (%d annotations)", ok, len(aD), sum(len(v) for v in aD.values()))
         return ok
 
     def __decodeComment(self, comment, separator="|"):
