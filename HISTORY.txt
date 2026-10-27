@@ -85,3 +85,6 @@
                        cache build, cache load, and lookup, so short and extended IDs may be supplied in any case;
                        add GlycanProvider.getGlycanIdentifier() for short or extended entry IDs;
                        update GlyGenProvider to GlyGen version 2.11.1
+  26-Oct-2026    V0.89 Add PlasticEnzymeAnnotationProvider for plastic-degrading enzyme annotations (RO-5200): fetch and
+                       standardize PAZy (JSON) and PlasticDB (FASTA) data, export the combined enzyme FASTA, and build
+                       per-entity annotations from the sequence search results; require rcsb.utils.io >= 1.56
