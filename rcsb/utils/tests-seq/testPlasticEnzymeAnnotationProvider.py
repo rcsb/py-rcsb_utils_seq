@@ -7,7 +7,8 @@
 #  27-Oct-2026 dwp Replace the opt-in live fetch test with tests that always check that the PAZy and PlasticDB
 #                  source data are accessible and usable (each fails if its source can't be fetched); start each test
 #                  from an empty cache; add tests for the kept raw source files, the stash fallback (newest data
-#                  kept), restore() using a valid local cache, and backup() adding missing raw source files
+#                  kept), restore() using a valid local cache, and backup() adding missing raw source files; the live
+#                  source tests also check that the downloaded raw source file is kept and not empty
 ##
 """
 Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
@@ -317,9 +318,9 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertIsNone(peP.getAnnotation("7DZT_1"))
         self.assertIsNone(peP.getEnzyme("PAZy", "15"))
 
-    def __checkLiveSource(self, sourceDb, urlKey, dataFileName, minCount=100):
+    def __checkLiveSource(self, sourceDb, urlKey, rawFileName, dataFileName, minCount=100):
         """Fetch one source from its default (live) URL, and the other from its local test file, and check that the live
-        source returns enough usable records."""
+        source's raw file is downloaded and kept, and returns enough usable records."""
         cachePath = os.path.join(self.__workPath, "CACHE-live-%s" % sourceDb)
         shutil.rmtree(cachePath, ignore_errors=True)
         kwargs = {"pazyUrl": self.__pazyPath, "plasticDBUrl": self.__plasticDBPath}
@@ -327,6 +328,8 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         peP = PlasticEnzymeAnnotationProvider(cachePath=cachePath, useCache=False, **kwargs)
         ok = peP.fetchPlasticEnzymeData(minCount=1)
         self.assertTrue(ok, "%s source data could not be fetched (see the error logged above)" % sourceDb)
+        rawPath = os.path.join(cachePath, "plastic-enzyme-annotations", rawFileName)
+        self.assertTrue(os.path.isfile(rawPath) and os.path.getsize(rawPath) > 0, "%s raw source file %r is missing or empty" % (sourceDb, rawFileName))
         dataD = self.__mU.doImport(os.path.join(cachePath, "plastic-enzyme-annotations", dataFileName), fmt="json")["data"]
         self.assertGreater(len(dataD), minCount, "too few %s records" % sourceDb)
         for enzymeId, eD in dataD.items():
@@ -337,11 +340,11 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
 
     def testPazySourceAccess(self):
         """The live PAZy source data is accessible and usable (fails if PAZy can't be fetched)."""
-        self.__checkLiveSource("PAZy", "pazyUrl", "pazy-select-data.json")
+        self.__checkLiveSource("PAZy", "pazyUrl", "pazy_proteins.json", "pazy-select-data.json")
 
     def testPlasticDBSourceAccess(self):
         """The live PlasticDB source data is accessible and usable (fails if PlasticDB can't be fetched)."""
-        self.__checkLiveSource("PlasticDB", "plasticDBUrl", "plasticdb-select-data.json")
+        self.__checkLiveSource("PlasticDB", "plasticDBUrl", "PlasticDB.fasta", "plasticdb-select-data.json")
 
 
 def suitePlasticEnzymeAnnotationProvider():
