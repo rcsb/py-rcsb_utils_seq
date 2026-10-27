@@ -9,6 +9,7 @@
 #                  sort substrate lists; don't overwrite the annotation file when the search results are empty or
 #                  yield too few annotated entities; send a 'RCSB-PDB-ETL' User-Agent with source data requests;
 #                  log failed source fetches (e.g., HTTP 403) as errors with the source URL
+#  26-Oct-2026 dwp Ignore (and log) cache files that don't load as a dictionary
 ##
 """
 Accessors and generators for plastic-degrading enzyme annotation data (sourced from PAZy and PlasticDB).
@@ -127,7 +128,11 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         if useCache:
             for ii, dataPath in enumerate([self.__getPazyDataPath(), self.__getPlasticDBDataPath(), self.__getAnnotationDataPath()]):
                 if self.__mU.exists(dataPath):
-                    dataL[ii] = self.__mU.doImport(dataPath, fmt="json") or {}
+                    dataD = self.__mU.doImport(dataPath, fmt="json")
+                    if isinstance(dataD, dict):
+                        dataL[ii] = dataD
+                    else:
+                        logger.warning("Unable to load plastic enzyme cache file %r", dataPath)
                 else:
                     logger.info("Plastic enzyme cache file not present %r", dataPath)
         logger.info("Completed reload (useCache %r) at %s (%.4f seconds)", useCache, time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
@@ -263,9 +268,7 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         tS = datetime.datetime.now().isoformat()
         self.__annotD = {"version": "1.0", "created": tS, "annotations": aD}
         ok = self.__mU.doExport(self.__getAnnotationDataPath(), self.__annotD, fmt="json", indent=3)
-        logger.info(
-            "Built plastic enzyme annotations (status %r) for %d entities (%d annotations)", ok, len(aD), sum(len(v) for v in aD.values())
-        )
+        logger.info("Built plastic enzyme annotations (status %r) for %d entities (%d annotations)", ok, len(aD), sum(len(v) for v in aD.values()))
         return ok
 
     def __decodeComment(self, comment, separator="|"):

@@ -4,6 +4,8 @@
 # Date:    11-Dec-2018
 #
 # Update:
+#  20-Oct-2026 dwp Add test for loading a cache built by older code (uppercase entry ID keys)
+#  26-Oct-2026 dwp Add test for SIFTS source entry IDs (fails once SIFTS uses extended PDB IDs)
 #
 #
 ##
@@ -20,9 +22,12 @@ __license__ = "Apache 2.0"
 import logging
 import os
 import platform
+import shutil
 import time
 import unittest
 
+from rcsb.utils.io.FileUtil import FileUtil
+from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.SiftsSummaryProvider import SiftsSummaryProvider
 
 HERE = os.path.abspath(os.path.dirname(__file__))
@@ -30,6 +35,11 @@ TOPDIR = os.path.dirname(os.path.dirname(HERE))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(module)s.%(funcName)s: %(message)s")
 logger = logging.getLogger()
+
+
+def getNonShortEntryIds(entryIds):
+    """Return the entry IDs that aren't short (4-character) PDB IDs, e.g. extended (12-character) PDB IDs."""
+    return sorted({eId for eId in entryIds if len(eId) != 4})
 
 
 class SiftsSummaryProviderTests(unittest.TestCase):
@@ -86,6 +96,26 @@ class SiftsSummaryProviderTests(unittest.TestCase):
 
         logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - self.__startTime)
 
+    def testReadLegacySiftsSummaryCache(self):
+        """Test that a cache built by older code (uppercase entry ID keys, e.g. restored from the stash) is still usable."""
+        cachePath = os.path.join(HERE, "test-output", "CACHE-legacy-sifts")
+        shutil.rmtree(cachePath, ignore_errors=True)
+        legacyD = {
+            "1CBS": {"A": {"UNPID": ["P29373"], "UNPAL": [{"UP": "P29373", "BG": 1, "LEN": 137, "UBG": 1, "UND": 137}], "TAXID": ["9606"]}},
+            "1234": {"A": {"UNPID": ["P00001"]}},
+        }
+        mU = MarshalUtil()
+        mU.mkdir(os.path.join(cachePath, "sifts-summary"))
+        ok = mU.doExport(os.path.join(cachePath, "sifts-summary", "sifts-summary-py3.pic"), legacyD, fmt="pickle")
+        self.assertTrue(ok)
+        su = SiftsSummaryProvider(cachePath=cachePath, useCache=True)
+        self.assertEqual(su.getEntries(), ["1234", "1cbs"])
+        for entryId in ["1CBS", "1cbs"]:
+            self.assertEqual(su.getIdentifiers(entryId, "A", "UNPID"), ["P29373"])
+            self.assertEqual(su.getTaxIds(entryId, "A"), ["9606"])
+            self.assertEqual(su.getAlignmentCount(entryId, "A"), 1)
+        self.assertEqual(su.getEntryUniqueIdentifiers(["1234", "1CBS"]), ["P00001", "P29373"])
+
     @unittest.skipIf(platform.system() != "Darwin", "Skip long development troubleshooting test")
     def testWriteSiftsSummaryCacheJson(self):
         entrySaveLimit = 50
@@ -101,11 +131,30 @@ class SiftsSummaryProviderTests(unittest.TestCase):
         logger.info("SIFTS entry count %d", eCount)
         self.assertGreaterEqual(eCount, entrySaveLimit)
 
+    def testSiftsSourceEntryIds(self):
+        """Check that the SIFTS summary source data (current EBI SIFTS files) still uses short (4-character) PDB IDs.
+
+        Production reads the same files from an rsync mirror. Builds the abbreviated ("TEST") summary, as production does,
+        from the two files it reads.
+        """
+        srcDirPath = os.path.join(HERE, "test-output", "sifts-source-data")
+        cachePath = os.path.join(HERE, "test-output", "CACHE-sifts-source")
+        fU = FileUtil()
+        for fn in ["pdb_chain_uniprot.csv.gz", "pdb_chain_pfam.csv.gz"]:
+            self.assertTrue(fU.get("https://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/csv/" + fn, os.path.join(srcDirPath, fn)))
+        su = SiftsSummaryProvider(srcDirPath=srcDirPath, cachePath=cachePath, useCache=False, abbreviated="TEST")
+        self.assertTrue(su.testCache())
+        # Fails once the source data uses extended PDB IDs; then update this package and rcsb.utils.dictionary for them
+        badL = getNonShortEntryIds(su.getEntries())
+        self.assertEqual(badL, [], "SIFTS source data has entry IDs that aren't 4-char PDB IDs: %r" % badL[:10])
+
 
 def readSiftsInfo():
     suiteSelect = unittest.TestSuite()
     # suiteSelect.addTest(SiftsSummaryProviderTests("testWriteSiftsSummaryCacheJson"))
     suiteSelect.addTest(SiftsSummaryProviderTests("testWriteReadSiftsSummaryCache"))
+    suiteSelect.addTest(SiftsSummaryProviderTests("testReadLegacySiftsSummaryCache"))
+    suiteSelect.addTest(SiftsSummaryProviderTests("testSiftsSourceEntryIds"))
     return suiteSelect
 
 

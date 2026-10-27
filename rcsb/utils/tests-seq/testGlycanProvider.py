@@ -4,6 +4,7 @@
 # Date:    28-May-2021
 #
 # Update:
+#  20-Oct-2026 dwp Add test for getGlycanIdentifier() with short and extended entry IDs
 #
 #
 ##
@@ -22,6 +23,7 @@ import os
 import unittest
 
 from rcsb.utils.io.FileUtil import FileUtil
+from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.GlycanProvider import GlycanProvider
 from rcsb.utils.config.ConfigUtil import ConfigUtil
 
@@ -81,6 +83,30 @@ class GlycanProviderTests(unittest.TestCase):
         ok = gP.testCache(minCount=minCount)
         self.assertTrue(ok)
 
+    def testGetGlycanIdentifier(self):
+        """Test glycan identifier lookups for short and extended entry IDs (keys as stored in the identifier map)."""
+        cachePath = os.path.join(HERE, "test-output", "CACHE-glycan-ids")
+        idD = {
+            "1ABC_2": {"glyTouCanId": "G00001AA", "prdId": "PRD_000001"},
+            "pdb_00001abc_3": {"glyTouCanId": "G00002BB", "prdId": None},
+            "pdb_10000xyz_1": {"glyTouCanId": "G00003CC", "prdId": None},
+        }
+        mU = MarshalUtil()
+        ok = mU.doExport(os.path.join(cachePath, "glycan", "branched_entity_glycan_identifier_map.json"), {"version": "0.50", "created": "", "identifiers": idD}, fmt="json")
+        self.assertTrue(ok)
+        gP = GlycanProvider(cachePath=cachePath, useCache=True)
+        self.assertTrue(gP.testCache(minCount=3))
+        # Short and extended IDs, including an extended ID with no short form
+        self.assertEqual(gP.getGlycanIdentifier("1ABC", "2", "glyTouCanId"), "G00001AA")
+        self.assertEqual(gP.getGlycanIdentifier("1ABC", "2", "prdId"), "PRD_000001")
+        self.assertEqual(gP.getGlycanIdentifier("pdb_00001abc", "3", "glyTouCanId"), "G00002BB")
+        self.assertEqual(gP.getGlycanIdentifier("pdb_10000xyz", "1", "glyTouCanId"), "G00003CC")
+        # Misses: unknown entity, ID type not present, or a key in a different format/case than stored
+        self.assertIsNone(gP.getGlycanIdentifier("1ABC", "9", "glyTouCanId"))
+        self.assertIsNone(gP.getGlycanIdentifier("pdb_00001abc", "3", "prdId"))
+        self.assertIsNone(gP.getGlycanIdentifier("pdb_00001abc", "2", "glyTouCanId"))
+        self.assertIsNone(gP.getGlycanIdentifier("1abc", "2", "glyTouCanId"))
+
     @unittest.skip("Internal test")
     def testGlycanStashRemote(self):
         minCount = 12
@@ -120,6 +146,7 @@ class GlycanProviderTests(unittest.TestCase):
 def glycanMappingSuite():
     suiteSelect = unittest.TestSuite()
     suiteSelect.addTest(GlycanProviderTests("testGlycanMapping"))
+    suiteSelect.addTest(GlycanProviderTests("testGetGlycanIdentifier"))
     return suiteSelect
 
 

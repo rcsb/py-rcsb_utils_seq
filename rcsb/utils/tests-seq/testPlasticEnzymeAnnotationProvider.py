@@ -3,7 +3,7 @@
 # Date:    20-Oct-2026
 #
 # Updates:
-#
+#  26-Oct-2026 dwp Add testReloadMalformedCache
 ##
 """
 Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
@@ -196,6 +196,21 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertFalse(peP.testCache(minCount=0))
         self.assertIsNone(peP.getAnnotation("7DZT_1"))
 
+    def testReloadMalformedCache(self):
+        """Cache files that don't load as a dictionary are ignored."""
+        cachePath = os.path.join(self.__workPath, "CACHE-malformed")
+        dirPath = os.path.join(cachePath, "plastic-enzyme-annotations")
+        self.__mU.mkdir(dirPath)
+        for fileName in ["pazy-select-data.json", "plasticdb-select-data.json", "plastic-enzyme-annotation-data.json"]:
+            self.__mU.doExport(os.path.join(dirPath, fileName), ["not", "a", "dictionary"], fmt="json")
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="WARNING") as cm:
+            peP = PlasticEnzymeAnnotationProvider(cachePath=cachePath, useCache=True)
+        self.assertEqual(sum("Unable to load plastic enzyme cache file" in msg for msg in cm.output), 3)
+        self.assertFalse(peP.testCache(minCount=0))
+        self.assertIsNone(peP.getVersion())
+        self.assertIsNone(peP.getAnnotation("7DZT_1"))
+        self.assertIsNone(peP.getEnzyme("PAZy", "15"))
+
     @unittest.skipUnless(os.environ.get("PLASTIC_ENZYME_LIVE_TEST"), "Set PLASTIC_ENZYME_LIVE_TEST to fetch the live PAZy and PlasticDB data")
     def testFetchLive(self):
         """Fetch the live PAZy and PlasticDB data."""
@@ -212,6 +227,7 @@ def suitePlasticEnzymeAnnotationProvider():
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFailure"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testExportFasta"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testBuildAnnotationList"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testReloadMalformedCache"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchLive"))
     return suiteSelect
 
