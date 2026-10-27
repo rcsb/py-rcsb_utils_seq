@@ -10,13 +10,20 @@
 #                  yield too few annotated entities; send a 'RCSB-PDB-ETL' User-Agent with source data requests;
 #                  log failed source fetches (e.g., HTTP 403) as errors with the source URL
 #  26-Oct-2026 dwp Ignore (and log) cache files that don't load as a dictionary
+#  27-Oct-2026 dwp Add a request timeout for source data fetches (default 30 seconds), so a stalled connection
+#                  fails instead of hanging; download source files to a temporary file and keep them (pazy_proteins.json,
+#                  PlasticDB.fasta) only once they parse with enough records, so the raw files are part of the stashed
+#                  backup; if either source can't be fetched, restore the stashed backup and write the freshly fetched
+#                  source over it; restore() uses a valid local cache (testCache()) instead of the stash; backup() first
+#                  adds any missing raw source files from the current stashed backup, and skips the backup without them
 ##
 """
 Accessors and generators for plastic-degrading enzyme annotation data (sourced from PAZy and PlasticDB).
 
 Workflow:
-    1. fetchPlasticEnzymeData() - fetch PAZy (JSON) and PlasticDB (FASTA) data and standardize each
-                                  (pazy-select-data.json and plasticdb-select-data.json)
+    1. fetchPlasticEnzymeData() - fetch PAZy (JSON) and PlasticDB (FASTA) data, keep the raw files (pazy_proteins.json
+                                  and PlasticDB.fasta) and standardize each (pazy-select-data.json and
+                                  plasticdb-select-data.json), with fallback to the stashed backup
     2. exportFasta()            - export the combined enzyme sequences (plastic-enzyme-sequences.fa)
     3. (external)               - sequence search of the enzyme sequences against PDB polymer entities
     4. buildAnnotationList()    - build the polymer entity annotations from the search results
@@ -28,6 +35,8 @@ import datetime
 import logging
 import os.path
 import re
+import shutil
+import tempfile
 import time
 
 from rcsb.utils.io.FileUtil import FileUtil
@@ -46,15 +55,19 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         self.__dirName = "plastic-enzyme-annotations"
         super(PlasticEnzymeAnnotationProvider, self).__init__(self.__cachePath, [self.__dirName])
         self.__dirPath = os.path.join(self.__cachePath, self.__dirName)
+        # Raw source data files, kept in the cache directory (and so in the stashed backup)
+        self.__rawFileNameD = {"PAZy": "pazy_proteins.json", "PlasticDB": "PlasticDB.fasta"}
         #
         # Source locators (remote URLs by default; local file paths are also accepted by FileUtil.get())
         self.__pazyUrl = kwargs.get("pazyUrl", "https://api.pazy.eu/api/proteins/json/?format=json")
         self.__plasticDBUrl = kwargs.get("plasticDBUrl", "https://plasticdb.org/static/PlasticDB.fasta")
         userAgent = kwargs.get("userAgent", "RCSB-PDB-ETL")
         self.__headers = {"User-Agent": userAgent} if userAgent else None
+        # Seconds without a response (connect, TLS handshake or between bytes) before a source fetch attempt fails
+        self.__timeout = kwargs.get("timeout", 30)
         #
         self.__mU = MarshalUtil(workPath=self.__dirPath)
-        self.__fU = FileUtil()
+        self.__fU = FileUtil(timeout=self.__timeout)
         self.__pazyD, self.__plasticDBD, self.__annotD = self.__reload(**kwargs)
 
     def testCache(self, minCount=100):
@@ -114,6 +127,12 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
     def __getPlasticDBDataPath(self):
         return os.path.join(self.__dirPath, "plasticdb-select-data.json")
 
+    def __getSelectDataPath(self, sourceDb):
+        return self.__getPazyDataPath() if sourceDb == "PAZy" else self.__getPlasticDBDataPath()
+
+    def __getRawPath(self, sourceDb):
+        return os.path.join(self.__dirPath, self.__rawFileNameD[sourceDb])
+
     def __getAnnotationDataPath(self):
         return os.path.join(self.__dirPath, "plastic-enzyme-annotation-data.json")
 
@@ -138,29 +157,118 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         logger.info("Completed reload (useCache %r) at %s (%.4f seconds)", useCache, time.strftime("%Y %m %d %H:%M:%S", time.localtime()), time.time() - startTime)
         return dataL[0], dataL[1], dataL[2]
 
-    def fetchPlasticEnzymeData(self, minCount=100):
-        """Fetch the PAZy and PlasticDB source data and restructure each into a standardized JSON file
-        (pazy-select-data.json and plasticdb-select-data.json) in the cache path.
+    def fetchPlasticEnzymeData(self, minCount=100, cfgOb=None, configName=None, remotePrefix=None):
+        """Fetch the PAZy and PlasticDB raw source data and restructure each into a standardized JSON file
+        (pazy-select-data.json and plasticdb-select-data.json) in the cache path. The raw source files
+        (pazy_proteins.json and PlasticDB.fasta) are kept there too, so they're part of the stashed backup.
+
+        If either source can't be fetched, the stashed backup is restored (when cfgOb and configName are given), and
+        the freshly fetched raw and standardized data for the other source are then written over the restored copies,
+        so the newest data is kept. Use testSourceCache() to check that source data is available afterwards.
 
         Args:
-            minCount (int, optional): minimum number of records required to replace the cached data for a source. Defaults to 100.
+            minCount (int, optional): minimum number of records required to accept the fetched data for a source. Defaults to 100.
+            cfgOb (obj, optional): configuration object (ConfigUtil()) for restoring the stashed backup. Defaults to None (no restore).
+            configName (str, optional): configuration section name for restoring the stashed backup. Defaults to None.
+            remotePrefix (str, optional): stash channel prefix. Defaults to None.
 
         Returns:
-            bool: True for success (both sources) or False otherwise
+            bool: True if both sources were freshly fetched or False otherwise
         """
         startTime = time.time()
-        pazyOk = self.__fetchPazyData(minCount=minCount)
-        plasticDBOk = self.__fetchPlasticDBData(minCount=minCount)
-        ok = pazyOk and plasticDBOk
+        freshL = []
+        failedL = []
+        for sourceDb, fetchFunc in [("PAZy", self.__fetchPazyData), ("PlasticDB", self.__fetchPlasticDBData)]:
+            dataD, downloadPath = fetchFunc(minCount=minCount)
+            if dataD is None:
+                failedL.append(sourceDb)
+            else:
+                freshL.append((sourceDb, dataD, downloadPath))
+        #
+        if failedL:
+            if cfgOb and configName:
+                logger.warning("Fetching %s data failed - restoring the stashed backup", " and ".join(failedL))
+                okR = super(PlasticEnzymeAnnotationProvider, self).restore(cfgOb, configName, remotePrefix=remotePrefix, useStash=True, useGit=False)
+                logger.info("Plastic enzyme stash restore status (%r)", okR)
+            else:
+                logger.error("Fetching %s data failed, and no stash configuration given for a restore", " and ".join(failedL))
+        #
+        # Keep the freshly fetched raw files and write their standardized data (after any stash restore, so they replace the restored copies)
+        for sourceDb, dataD, downloadPath in freshL:
+            os.replace(downloadPath, self.__getRawPath(sourceDb))
+            self.__exportSelectData(self.__getSelectDataPath(sourceDb), dataD, sourceDb)
+        self.__pazyD, self.__plasticDBD, _ = self.__reload(useCache=True)
+        #
+        ok = not failedL
         logger.info(
-            "Completed fetch of plastic enzyme data (%r) PAZy (%r) PlasticDB (%r) at %s (%.4f seconds)",
+            "Completed plastic enzyme source data fetch (%r) fetched %r failed %r at %s (%.4f seconds)",
             ok,
-            pazyOk,
-            plasticDBOk,
+            [tup[0] for tup in freshL],
+            failedL,
             time.strftime("%Y %m %d %H:%M:%S", time.localtime()),
             time.time() - startTime,
         )
         return ok
+
+    def restore(self, cfgOb, configName, remotePrefix=None, useStash=True, useGit=False):
+        """Restore the plastic enzyme cache directory from the stashed backup, unless the local cache already holds
+        valid data (testCache()), which is then used as is.
+
+        Returns:
+            bool: True if the local cache is valid or the restore succeeds, or False otherwise
+        """
+        self.__pazyD, self.__plasticDBD, self.__annotD = self.__reload(useCache=True)
+        if self.testCache():
+            logger.info("Using the valid local plastic enzyme cache in %r (no stash restore)", self.__dirPath)
+            return True
+        logger.info("Local plastic enzyme cache in %r is missing or incomplete - restoring the stashed backup", self.__dirPath)
+        ok = super(PlasticEnzymeAnnotationProvider, self).restore(cfgOb, configName, remotePrefix=remotePrefix, useStash=useStash, useGit=useGit)
+        self.__pazyD, self.__plasticDBD, self.__annotD = self.__reload(useCache=True)
+        return ok
+
+    def backup(self, cfgOb, configName, remotePrefix=None, useStash=True, useGit=False, backupToFallback=False):
+        """Back up the plastic enzyme cache directory to the stash, first adding any raw source file that's missing
+        locally (pazy_proteins.json or PlasticDB.fasta) from the current stashed backup, so that the new backup always
+        includes both raw files.
+
+        Returns:
+            bool: True for success, or False otherwise (including when a raw source file can't be found, and the backup is skipped)
+        """
+        missingL = [sourceDb for sourceDb in self.__rawFileNameD if not self.__mU.exists(self.__getRawPath(sourceDb))]
+        if missingL:
+            logger.warning("Raw %s source files missing in %r - adding them from the stashed backup", " and ".join(missingL), self.__dirPath)
+            tmpPath = tempfile.mkdtemp(prefix="plastic-enzyme-restore-", dir=self.__cachePath)
+            try:
+                # Restore the stashed backup into a separate directory, so the local data isn't overwritten
+                tP = PlasticEnzymeAnnotationProvider(cachePath=tmpPath, useCache=False)
+                StashableBase.restore(tP, cfgOb, configName, remotePrefix=remotePrefix, useStash=useStash, useGit=useGit)
+                for sourceDb in list(missingL):
+                    srcPath = os.path.join(tmpPath, self.__dirName, self.__rawFileNameD[sourceDb])
+                    if self.__mU.exists(srcPath):
+                        shutil.copyfile(srcPath, self.__getRawPath(sourceDb))
+                        missingL.remove(sourceDb)
+            except Exception as e:
+                logger.exception("Failing to add raw source files from the stashed backup with %s", str(e))
+            finally:
+                shutil.rmtree(tmpPath, ignore_errors=True)
+        if missingL:
+            logger.error("Raw %s source files are missing locally and in the stashed backup - skipping the backup", " and ".join(missingL))
+            return False
+        return super(PlasticEnzymeAnnotationProvider, self).backup(cfgOb, configName, remotePrefix=remotePrefix, useStash=useStash, useGit=useGit, backupToFallback=backupToFallback)
+
+    def __getSourceFile(self, sourceDb, url):
+        """Download a raw source data file to a temporary file in the cache directory (removed on failure).
+
+        Returns:
+            str: path to the downloaded file, or None if it couldn't be fetched
+        """
+        downloadPath = self.__getRawPath(sourceDb) + ".download"
+        logger.info("Fetching %s data from %r to %r", sourceDb, url, downloadPath)
+        if not self.__fU.get(url, downloadPath, headers=self.__headers):
+            self.__fU.remove(downloadPath)
+            logger.error("Fetching %s data from %r failed (site down or blocking requests, e.g., HTTP 403 - see the HTTP status above)", sourceDb, url)
+            return None
+        return downloadPath
 
     def exportFasta(self, fastaPath=None):
         """Export a combined (PAZy and PlasticDB) plastic enzyme sequence fasta file (plastic-enzyme-sequences.fa)
@@ -281,21 +389,20 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         return dD
 
     def __fetchPazyData(self, minCount=100):
-        """Fetch PAZy JSON data and restructure it -> pazy-select-data.json
+        """Fetch PAZy JSON data and restructure it (written to pazy-select-data.json by fetchPlasticEnzymeData())
 
         Returns:
-            bool: True for success or False otherwise
+            (dict, str): standardized records keyed by enzyme ID and the path to the downloaded raw file, or (None, None) if
+                         the data couldn't be fetched or has too few records (the download is then removed)
         """
-        rawPath = os.path.join(self.__dirPath, "pazy_proteins.json")
-        logger.info("Fetching PAZy data from %r to %r", self.__pazyUrl, rawPath)
-        if not self.__fU.get(self.__pazyUrl, rawPath, headers=self.__headers):
-            logger.error("Fetching PAZy data from %r failed (site down or blocking requests, e.g., HTTP 403 - see the HTTP status above)", self.__pazyUrl)
-            return False
-        rawD = self.__mU.doImport(rawPath, fmt="json")
-        self.__fU.remove(rawPath)
+        downloadPath = self.__getSourceFile("PAZy", self.__pazyUrl)
+        if not downloadPath:
+            return None, None
+        rawD = self.__mU.doImport(downloadPath, fmt="json")
         if not rawD:
+            self.__fU.remove(downloadPath)
             logger.error("Unable to read PAZy data from %r", self.__pazyUrl)
-            return False
+            return None, None
         # The bulk download is a dictionary with "count" and "results" keys (but also accept a plain list)
         if isinstance(rawD, dict):
             entryL = rawD.get("results", [])
@@ -338,13 +445,13 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
                 logger.exception("Failing to process PAZy entry %r with %s", entry.get("id") if isinstance(entry, dict) else entry, str(e))
         #
         if len(oD) < minCount:
-            logger.error("Too few PAZy records (%d < %d), keeping the existing cached data", len(oD), minCount)
-            return False
-        self.__pazyD = self.__exportSelectData(self.__getPazyDataPath(), oD, "PAZy")
-        return bool(self.__pazyD)
+            self.__fU.remove(downloadPath)
+            logger.error("Too few PAZy records (%d < %d) in the fetched data", len(oD), minCount)
+            return None, None
+        return oD, downloadPath
 
     def __fetchPlasticDBData(self, minCount=100):
-        """Fetch PlasticDB FASTA data and restructure it -> plasticdb-select-data.json
+        """Fetch PlasticDB FASTA data and restructure it (written to plasticdb-select-data.json by fetchPlasticEnzymeData())
 
         PlasticDB fasta headers have the form: >{enzymeId}|{name}|{organism}|{plastics}|{accession}
         (e.g., >00001|PHB_depolymerase|Ralstonia_pickettii|PHB_PHA|BAA04986.1), where spaces in the name and organism
@@ -352,19 +459,18 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
         and a missing accession is "NA".
 
         Returns:
-            bool: True for success or False otherwise
+            (dict, str): standardized records keyed by enzyme ID and the path to the downloaded raw file, or (None, None) if
+                         the data couldn't be fetched or has too few records (the download is then removed)
         """
-        rawPath = os.path.join(self.__dirPath, "PlasticDB.fasta")
-        logger.info("Fetching PlasticDB data from %r to %r", self.__plasticDBUrl, rawPath)
-        if not self.__fU.get(self.__plasticDBUrl, rawPath, headers=self.__headers):
-            logger.error("Fetching PlasticDB data from %r failed (site down or blocking requests, e.g., HTTP 403 - see the HTTP status above)", self.__plasticDBUrl)
-            return False
+        downloadPath = self.__getSourceFile("PlasticDB", self.__plasticDBUrl)
+        if not downloadPath:
+            return None, None
         # The "default" comment style returns {header (without ">"): {"sequence": ...}}
-        sD = self.__mU.doImport(rawPath, fmt="fasta", commentStyle="default")
-        self.__fU.remove(rawPath)
+        sD = self.__mU.doImport(downloadPath, fmt="fasta", commentStyle="default")
         if not sD:
+            self.__fU.remove(downloadPath)
             logger.error("Unable to read PlasticDB data from %r", self.__plasticDBUrl)
-            return False
+            return None, None
         #
         oD = {}
         for header, seqD in sD.items():
@@ -406,10 +512,10 @@ class PlasticEnzymeAnnotationProvider(StashableBase):
                 logger.exception("Failing to process PlasticDB record %r with %s", header, str(e))
         #
         if len(oD) < minCount:
-            logger.error("Too few PlasticDB records (%d < %d), keeping the existing cached data", len(oD), minCount)
-            return False
-        self.__plasticDBD = self.__exportSelectData(self.__getPlasticDBDataPath(), oD, "PlasticDB")
-        return bool(self.__plasticDBD)
+            self.__fU.remove(downloadPath)
+            logger.error("Too few PlasticDB records (%d < %d) in the fetched data", len(oD), minCount)
+            return None, None
+        return oD, downloadPath
 
     def __isUniProtAccession(self, accession):
         return re.match(r"^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9]([A-Z][A-Z0-9]{2}[0-9]){1,2})$", accession) is not None

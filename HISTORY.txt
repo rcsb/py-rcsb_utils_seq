@@ -87,4 +87,7 @@
                        update GlyGenProvider to GlyGen version 2.11.1
   26-Oct-2026    V0.89 Add PlasticEnzymeAnnotationProvider for plastic-degrading enzyme annotations (RO-5200): fetch and
                        standardize PAZy (JSON) and PlasticDB (FASTA) data, export the combined enzyme FASTA, and build
-                       per-entity annotations from the sequence search results; require rcsb.utils.io >= 1.56
+                       per-entity annotations from the sequence search results; source fetches time out; the raw
+                       source files are kept and stashed with the data, a source that can't be fetched falls back to
+                       the stashed backup, restore() uses a valid local cache first, and backup() adds missing raw
+                       files from the stash; require rcsb.utils.io >= 1.56
