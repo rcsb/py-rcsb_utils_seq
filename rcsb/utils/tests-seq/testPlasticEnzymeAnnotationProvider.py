@@ -1,192 +1,237 @@
 ##
 # File:    testPlasticEnzymeAnnotationProvider.py
-# Date:    21-Oct-2026
-# Version: 0.001
+# Date:    20-Oct-2026
 #
-# Update:
-#
+# Updates:
+#  26-Oct-2026 dwp Add testReloadMalformedCache
 ##
 """
-Tests for utilities managing plastic-degrading enzyme annotation data (PAZy and PlasticDB).
-
-The tests run against the downloaded source files in this directory (pazy_proteins.json, degraders_list.tsv,
-pazy_proteins.fasta and PlasticDB.fasta), and check the results against the contents of those files and of
-the generated select-data files (rather than against hardcoded values).
+Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
 """
 
-__docformat__ = "google en"
-__license__ = "Apache 2.0"
-
+import json
 import logging
 import os
-import platform
-import resource
-import shutil
-import time
 import unittest
 
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.seq.PlasticEnzymeAnnotationProvider import PlasticEnzymeAnnotationProvider
 
 HERE = os.path.abspath(os.path.dirname(__file__))
+TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(module)s.%(funcName)s: %(message)s")
 logger = logging.getLogger()
+
+SEQ_A = "MRNTLKAAFKLGVISAALLAPFATQAATAGPGAWSSQQTWAADSVNGG"
+SEQ_B = "MKHPYGYRWHWLYALVVTLMTALATFSAHAAVTAGPGAWSSQQTWAADTV"
+
+PAZY_JSON = {
+    "count": 3,
+    "results": [
+        {
+            "id": 15,
+            "name": "RgPETase",
+            "amino_acid_sequence": SEQ_A[:24] + "\n" + SEQ_A[24:],
+            "organism": {"scientific_name": "Rhizobacter gummiphilus", "ncbi_taxonomy_id": 946333},
+            "uniprot_accession": "A0A1W6L588",
+            "substrates": [{"abbreviation": "PET", "name": "Polyethylene terephthalate"}, {"abbreviation": "PET", "name": "Polyethylene terephthalate"}],
+        },
+        {"id": 16, "name": "NoSequence", "amino_acid_sequence": None, "organism": None, "uniprot_accession": None, "substrates": []},
+        {"id": 17, "name": "PHB depolymerase", "amino_acid_sequence": SEQ_B, "organism": {}, "uniprot_accession": None, "substrates": [{"abbreviation": "PHA"}]},
+    ],
+}
+
+PLASTICDB_FASTA = (
+    ">00001|PHB_depolymerase|Ralstonia_pickettii|PHB_PHA|BAA04986.1\n"
+    + SEQ_B
+    + "\n>00008|Cutinase|Fusarium_verticillioides|PCL|Q96UT0.1\n"
+    + SEQ_A
+    + "\n>00068|PU_esterase_|Pseudozyma_antarctica|PBS-Blend_O-PVA|NA\n"
+    + SEQ_A[::-1]
+    + "\n>00069|BadHeader|NoPlastics\n"
+    + SEQ_B
+    + "\n"
+)
 
 
 class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
     def setUp(self):
-        self.__cachePath = os.path.join(HERE, "test-output", "CACHE")
-        self.__dirPath = os.path.join(self.__cachePath, "plastic-enzyme-annotations")
-        # Start each test with an empty cache
-        shutil.rmtree(self.__cachePath, ignore_errors=True)
-        #
-        self.__pazyJsonPath = os.path.join(HERE, "pazy_proteins.json")
-        self.__plasticDBTsvPath = os.path.join(HERE, "degraders_list.tsv")
-        self.__pazyFastaPath = os.path.join(HERE, "pazy_proteins.fasta")
-        self.__plasticDBFastaPath = os.path.join(HERE, "PlasticDB.fasta")
-        for filePath in [self.__pazyJsonPath, self.__plasticDBTsvPath, self.__pazyFastaPath, self.__plasticDBFastaPath]:
-            if not os.path.exists(filePath):
-                self.skipTest("Source data file not present: %s" % filePath)
-        #
-        self.__mU = MarshalUtil()
-        self.__startTime = time.time()
-        logger.info("Starting %s at %s", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()))
+        self.__workPath = os.path.join(HERE, "test-output", "plastic-enzyme")
+        self.__cachePath = os.path.join(self.__workPath, "CACHE")
+        self.__mU = MarshalUtil(workPath=self.__workPath)
+        self.__mU.mkdir(self.__workPath)
+        self.__pazyPath = os.path.join(self.__workPath, "pazy-test.json")
+        self.__plasticDBPath = os.path.join(self.__workPath, "plasticdb-test.fasta")
+        self.__mU.doExport(self.__pazyPath, PAZY_JSON, fmt="json")
+        with open(self.__plasticDBPath, "w", encoding="utf-8") as ofh:
+            ofh.write(PLASTICDB_FASTA)
 
     def tearDown(self):
-        unitS = "MB" if platform.system() == "Darwin" else "GB"
-        rusageMax = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        logger.info("Maximum resident memory size %.4f %s", rusageMax / 10**6, unitS)
-        endTime = time.time()
-        logger.info("Completed %s at %s (%.4f seconds)", self.id(), time.strftime("%Y %m %d %H:%M:%S", time.localtime()), endTime - self.__startTime)
+        pass
 
-    # --- helpers
-    def __getProvider(self, **kwargs):
-        # The source files in this directory are used in place of downloading from PAZy and PlasticDB
-        return PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, pazyUrl=self.__pazyJsonPath, plasticDBUrl=self.__plasticDBTsvPath, **kwargs)
+    def __getTestProvider(self, useCache=False):
+        return PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=useCache, pazyUrl=self.__pazyPath, plasticDBUrl=self.__plasticDBPath)
 
-    def __getDataPath(self, fileName):
-        return os.path.join(self.__dirPath, fileName)
-
-    def __getSelectData(self, fileName):
-        """Return the "data" section of a generated select-data file."""
-        fD = self.__mU.doImport(self.__getDataPath(fileName), fmt="json")
-        self.assertIn("version", fD)
-        self.assertIn("created", fD)
-        self.assertIn("data", fD)
-        return fD["data"]
-
-    def __getFastaRecords(self, fileName):
-        """Return a list of (header, sequence) tuples from a generated fasta file."""
-        recordL = []
-        with open(self.__getDataPath(fileName), "r", encoding="utf-8") as ifh:
-            for line in ifh.read().splitlines():
-                if line.startswith(">"):
-                    recordL.append([line[1:], ""])
-                else:
-                    recordL[-1][1] += line
-        return [tuple(r) for r in recordL]
-
-    def __checkFastaMatchesSelectData(self, fastaFileName, pazyD, plasticDBD):
-        """The fasta has one record per select-data entry (PAZy first, then PlasticDB), with header >{id}|enzymeId|{sourceDb}|sourceDb"""
-        expectedL = []
-        for dataD in (pazyD, plasticDBD):
-            for enzymeId, eD in dataD.items():
-                expectedL.append(("%s|enzymeId|%s|sourceDb" % (enzymeId, eD["source_db"]), eD["sequence"]))
-        self.assertEqual(self.__getFastaRecords(fastaFileName), expectedL)
-
-    # --- tests
-    def testFetchPlasticEnzymeData(self):
-        pzP = self.__getProvider(useCache=False)
-        ok = pzP.testCache()
-        self.assertFalse(ok)
-        ok = pzP.fetchPlasticEnzymeData()
+    def testFetchAndStandardize(self):
+        """PAZy and PlasticDB retrieval and normalization (local test files)."""
+        peP = self.__getTestProvider()
+        self.assertFalse(peP.testSourceCache(minCount=0))
+        ok = peP.fetchPlasticEnzymeData(minCount=1)
         self.assertTrue(ok)
+        self.assertTrue(peP.testSourceCache(minCount=1))
         #
-        for fileName, sourceDb in [("pazy-select-data.json", "PAZy"), ("plasticdb-select-data.json", "PlasticDB")]:
-            dataD = self.__getSelectData(fileName)
-            self.assertGreater(len(dataD), 100)
-            for enzymeId, eD in dataD.items():
-                self.assertEqual(eD["source_db"], sourceDb)
-                self.assertTrue(eD["sequence"], msg="%s %s" % (sourceDb, enzymeId))
-                self.assertTrue(eD["name"], msg="%s %s" % (sourceDb, enzymeId))
-                self.assertIsInstance(eD["substrates"], list)
+        # PAZy: entries without a sequence are skipped; sequences are cleaned; substrates are unique abbreviations
+        self.assertIsNone(peP.getEnzyme("PAZy", "16"))
+        pD = peP.getEnzyme("PAZy", "15")
+        self.assertEqual(pD["sequence"], SEQ_A)
+        self.assertEqual(pD["substrates"], ["PET"])
+        self.assertEqual(pD["organism_ncbi_tax_id"], "946333")
+        self.assertEqual(pD["uniprot_accession"], "A0A1W6L588")
+        self.assertNotIn("organism_scientific_name", peP.getEnzyme("PAZy", "17"))
+        #
+        # PlasticDB: all header fields parsed; records with unexpected headers are skipped
+        self.assertIsNone(peP.getEnzyme("PlasticDB", "00069"))
+        pD = peP.getEnzyme("PlasticDB", "00001")
+        self.assertEqual(pD["name"], "PHB depolymerase")
+        self.assertEqual(pD["organism_scientific_name"], "Ralstonia pickettii")
+        self.assertEqual(pD["substrates"], ["PHA", "PHB"])
+        self.assertEqual(pD["genbank_accession"], "BAA04986.1")
+        self.assertEqual(peP.getEnzyme("PlasticDB", "00008")["uniprot_accession"], "Q96UT0")
+        pD = peP.getEnzyme("PlasticDB", "00068")
+        self.assertEqual(pD["name"], "PU esterase")
+        self.assertEqual(pD["substrates"], ["O-PVA", "PBS-Blend"])
+        self.assertNotIn("genbank_accession", pD)
+        self.assertNotIn("uniprot_accession", pD)
+
+    def testFetchMinCount(self):
+        """Source data with too few records doesn't replace the cache."""
+        peP = self.__getTestProvider()
+        ok = peP.fetchPlasticEnzymeData(minCount=100)
+        self.assertFalse(ok)
+        self.assertFalse(peP.testSourceCache(minCount=0))
+
+    def testFetchFailure(self):
+        """A failed source fetch is logged as an error and doesn't write the source data."""
+        peP = PlasticEnzymeAnnotationProvider(cachePath=self.__cachePath, useCache=False, pazyUrl=os.path.join(self.__workPath, "missing.json"), plasticDBUrl=self.__plasticDBPath)
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="ERROR") as cm:
+            ok = peP.fetchPlasticEnzymeData(minCount=1)
+        self.assertFalse(ok)
+        self.assertTrue(any("Fetching PAZy data from" in msg for msg in cm.output))
+        self.assertIsNone(peP.getEnzyme("PAZy", "15"))
+        self.assertIsNotNone(peP.getEnzyme("PlasticDB", "00001"))
 
     def testExportFasta(self):
-        pzP = self.__getProvider(useCache=False)
-        # Fasta cannot be exported before the data has been fetched
-        ok = pzP.exportFasta()
-        self.assertFalse(ok)
-        ok = pzP.fetchPlasticEnzymeData()
-        self.assertTrue(ok)
-        ok = pzP.exportFasta()
-        self.assertTrue(ok)
-        #
-        self.__checkFastaMatchesSelectData("plastic-enzyme-sequences.fa", self.__getSelectData("pazy-select-data.json"), self.__getSelectData("plasticdb-select-data.json"))
+        """FASTA generation and header format."""
+        peP = self.__getTestProvider()
+        self.assertFalse(peP.exportFasta())
+        self.assertTrue(peP.fetchPlasticEnzymeData(minCount=1))
+        fastaPath = os.path.join(self.__workPath, "plastic-enzyme-sequences-test.fa")
+        self.assertTrue(peP.exportFasta(fastaPath))
+        sD = self.__mU.doImport(fastaPath, fmt="fasta", commentStyle="default")
+        expectedL = ["15|PAZy", "17|PAZy", "00001|PlasticDB", "00008|PlasticDB", "00068|PlasticDB"]
+        self.assertEqual(sorted(sD.keys()), sorted(["%s|enzymeId|%s|sourceDb" % tuple(ky.split("|")) for ky in expectedL]))
+        self.assertEqual(sD["15|enzymeId|PAZy|sourceDb"]["sequence"], SEQ_A)
 
-    def testExportFastaFromFastaFiles(self):
-        pzP = self.__getProvider(useCache=False)
-        ok = pzP.exportFastaFromFastaFiles(self.__pazyFastaPath, self.__plasticDBFastaPath)
-        self.assertTrue(ok)
+    def testBuildAnnotationList(self):
+        """Parsing of sequence search results, mapping back to source annotations, cache reload and entity retrieval."""
+        peP = self.__getTestProvider()
+        self.assertFalse(peP.buildAnnotationList(os.path.join(self.__workPath, "missing.json"), minCount=1))
+        self.assertTrue(peP.fetchPlasticEnzymeData(minCount=1))
         #
-        pazyD = self.__getSelectData("pazy-fasta-select-data.json")
-        plasticDBD = self.__getSelectData("plasticdb-fasta-select-data.json")
-        self.assertGreater(len(pazyD), 100)
-        self.assertGreater(len(plasticDBD), 100)
-        self.__checkFastaMatchesSelectData("fa-plastic-enzymes-sequences.fa", pazyD, plasticDBD)
+        tgt = "{}|entityId|1|srcId|1|seqBeg|292|seqEnd|292|seqLen|9606|taxId"
+        mD = {
+            "15|enzymeId|PAZy|sourceDb": [
+                {"query": "15|enzymeId|PAZy|sourceDb", "target": tgt.format("7DZT_1"), "sequenceIdentity": 100.0, "bitScore": 752.0},
+                {"query": "15|enzymeId|PAZy|sourceDb", "target": tgt.format("pdb_00001abc_2"), "sequenceIdentity": 97.5, "bitScore": 700.0},
+            ],
+            "00008|enzymeId|PlasticDB|sourceDb": [
+                {"query": "00008|enzymeId|PlasticDB|sourceDb", "target": tgt.format("7DZT_1"), "sequenceIdentity": 100.0, "bitScore": 752.0},
+                # Second source part of the same entity: only the best match per (entity, enzyme) is kept
+                {"query": "00008|enzymeId|PlasticDB|sourceDb", "target": tgt.format("7DZT_1").replace("1|srcId", "2|srcId"), "sequenceIdentity": 96.0, "bitScore": 300.0},
+            ],
+            "00001|enzymeId|PlasticDB|sourceDb": [
+                {"query": "00001|enzymeId|PlasticDB|sourceDb", "target": tgt.format("7DZT_1"), "sequenceIdentity": 99.0, "bitScore": 750.0},
+            ],
+            "99999|enzymeId|PlasticDB|sourceDb": [
+                {"query": "99999|enzymeId|PlasticDB|sourceDb", "target": tgt.format("9XYZ_1"), "sequenceIdentity": 100.0, "bitScore": 10.0},
+            ],
+        }
+        matchPath = os.path.join(self.__workPath, "plastic-enzyme-vs-pdbprent-filtered-results-test.json")
+        with open(matchPath, "w", encoding="utf-8") as ofh:
+            json.dump(mD, ofh)
+        self.assertTrue(peP.buildAnnotationList(matchPath, minCount=1))
         #
-        # Both workflows give the same set of sequences
-        ok = pzP.fetchPlasticEnzymeData()
-        self.assertTrue(ok)
-        ok = pzP.exportFasta()
-        self.assertTrue(ok)
-        self.assertEqual(dict(self.__getFastaRecords("fa-plastic-enzymes-sequences.fa")), dict(self.__getFastaRecords("plastic-enzyme-sequences.fa")))
+        aDL = peP.getAnnotation("7DZT_1")
+        self.assertEqual([(aD["source_db"], aD["annotation_id"]) for aD in aDL], [("PAZy", "15"), ("PlasticDB", "00008"), ("PlasticDB", "00001")])
+        self.assertEqual([aD["perfect_match"] for aD in aDL], ["Y", "Y", "N"])
+        aD = aDL[0]
+        self.assertEqual((aD["entry_id"], aD["entity_id"], aD["name"], aD["substrates"]), ("7DZT", "1", "RgPETase", ["PET"]))
+        self.assertEqual(aD["description"], "Plastic degrading enzyme (sequence matched against PAZy).")
+        self.assertEqual(aD["reference_scheme"], "PDB entity")
+        self.assertEqual(aDL[1]["seq_id_pct"], 100.0)
+        #
+        aDL = peP.getAnnotation("pdb_00001abc_2")
+        self.assertEqual((aDL[0]["entry_id"], aDL[0]["entity_id"]), ("pdb_00001abc", "2"))
+        self.assertIsNone(peP.getAnnotation("9XYZ_1"))
+        self.assertFalse(peP.hasAnnotation("7dzt_1"))
+        self.assertTrue(peP.testCache(minCount=1))
+        self.assertFalse(peP.testCache(minCount=100))
+        #
+        # Empty or missing search results don't overwrite the existing annotation data
+        emptyPath = os.path.join(self.__workPath, "empty-results.json")
+        with open(emptyPath, "w", encoding="utf-8") as ofh:
+            json.dump({}, ofh)
+        self.assertFalse(peP.buildAnnotationList(emptyPath, minCount=1))
+        self.assertFalse(peP.buildAnnotationList(os.path.join(self.__workPath, "missing.json"), minCount=1))
+        self.assertFalse(peP.buildAnnotationList(matchPath, minCount=100))
+        #
+        # Cache reload
+        peP = self.__getTestProvider(useCache=True)
+        self.assertTrue(peP.testCache(minCount=1))
+        self.assertTrue(peP.hasAnnotation("7DZT_1"))
+        self.assertEqual(peP.getVersion(), "1.0")
+        # useCache=False loads nothing
+        peP = self.__getTestProvider(useCache=False)
+        self.assertFalse(peP.testCache(minCount=0))
+        self.assertIsNone(peP.getAnnotation("7DZT_1"))
 
-    def testReloadAndTestCache(self):
-        pzP = self.__getProvider(useCache=False)
-        ok = pzP.testCache()
-        self.assertFalse(ok)
-        ok = pzP.fetchPlasticEnzymeData()
-        self.assertTrue(ok)
-        # The select-data files are not loaded until reloaded; useCache=False loads nothing
-        pzP = self.__getProvider(useCache=False)
-        self.assertFalse(pzP.testCache())
-        #
-        # The annotation data file (generated by buildAnnotationList) is not yet available, so the cache is not complete
-        pzP = self.__getProvider(useCache=True)
-        self.assertFalse(pzP.testCache())
-        #
-        # Create an annotation data file (one entry per enzyme) in place of the output of buildAnnotationList
-        aD = {}
-        for fileName in ["pazy-select-data.json", "plasticdb-select-data.json"]:
-            for enzymeId, eD in self.__getSelectData(fileName).items():
-                aD["%s_1" % enzymeId] = {"entry_id": enzymeId, "entity_id": "1", "annotation_id": enzymeId, "source_db": eD["source_db"]}
-        self.assertGreater(len(aD), 100)
-        ok = self.__mU.doExport(self.__getDataPath("plastic-enzyme-annotation-data.json"), {"version": "1.0", "created": "test", "annotations": aD}, fmt="json", indent=3)
-        self.assertTrue(ok)
-        #
-        ok = pzP.reload()
-        self.assertTrue(ok)
-        ok = pzP.testCache()
-        self.assertTrue(ok)
-        pzP = self.__getProvider(useCache=True)
-        ok = pzP.testCache()
-        self.assertTrue(ok)
-        # useCache=False still loads nothing
-        pzP = self.__getProvider(useCache=False)
-        ok = pzP.testCache()
-        self.assertFalse(ok)
+    def testReloadMalformedCache(self):
+        """Cache files that don't load as a dictionary are ignored."""
+        cachePath = os.path.join(self.__workPath, "CACHE-malformed")
+        dirPath = os.path.join(cachePath, "plastic-enzyme-annotations")
+        self.__mU.mkdir(dirPath)
+        for fileName in ["pazy-select-data.json", "plasticdb-select-data.json", "plastic-enzyme-annotation-data.json"]:
+            self.__mU.doExport(os.path.join(dirPath, fileName), ["not", "a", "dictionary"], fmt="json")
+        with self.assertLogs("rcsb.utils.seq.PlasticEnzymeAnnotationProvider", level="WARNING") as cm:
+            peP = PlasticEnzymeAnnotationProvider(cachePath=cachePath, useCache=True)
+        self.assertEqual(sum("Unable to load plastic enzyme cache file" in msg for msg in cm.output), 3)
+        self.assertFalse(peP.testCache(minCount=0))
+        self.assertIsNone(peP.getVersion())
+        self.assertIsNone(peP.getAnnotation("7DZT_1"))
+        self.assertIsNone(peP.getEnzyme("PAZy", "15"))
+
+    @unittest.skipUnless(os.environ.get("PLASTIC_ENZYME_LIVE_TEST"), "Set PLASTIC_ENZYME_LIVE_TEST to fetch the live PAZy and PlasticDB data")
+    def testFetchLive(self):
+        """Fetch the live PAZy and PlasticDB data."""
+        peP = PlasticEnzymeAnnotationProvider(cachePath=os.path.join(self.__workPath, "CACHE-live"), useCache=False)
+        self.assertTrue(peP.fetchPlasticEnzymeData())
+        self.assertTrue(peP.testSourceCache())
+        self.assertTrue(peP.exportFasta())
 
 
-def buildPlasticEnzymeAnnotationTests():
+def suitePlasticEnzymeAnnotationProvider():
     suiteSelect = unittest.TestSuite()
-    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchPlasticEnzymeData"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchAndStandardize"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchMinCount"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchFailure"))
     suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testExportFasta"))
-    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testExportFastaFromFastaFiles"))
-    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testReloadAndTestCache"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testBuildAnnotationList"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testReloadMalformedCache"))
+    suiteSelect.addTest(PlasticEnzymeAnnotationProviderTests("testFetchLive"))
     return suiteSelect
 
 
 if __name__ == "__main__":
-    mySuite = buildPlasticEnzymeAnnotationTests()
+    mySuite = suitePlasticEnzymeAnnotationProvider()
     unittest.TextTestRunner(verbosity=2).run(mySuite)
