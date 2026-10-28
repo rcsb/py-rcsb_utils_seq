@@ -9,6 +9,8 @@
 #                  from an empty cache; add tests for the kept raw source files, the stash fallback (newest data
 #                  kept), restore() using a valid local cache, and backup() adding missing raw source files; the live
 #                  source tests also check that the downloaded raw source file is kept and not empty
+#  28-Oct-2026 dwp testPazySourceAccess checks the bundled copy of the PAZy source data (test-data/pazy_proteins.json)
+#                  instead, with an error logged, if PAZy refuses the request (HTTP 403, e.g., blocking CI IP addresses)
 ##
 """
 Tests for the plastic-degrading enzyme (PAZy and PlasticDB) annotation provider.
@@ -21,6 +23,8 @@ import shutil
 import unittest
 from unittest import mock
 
+import requests
+
 from rcsb.utils.io.MarshalUtil import MarshalUtil
 from rcsb.utils.io.StashableBase import StashableBase
 from rcsb.utils.seq.PlasticEnzymeAnnotationProvider import PlasticEnzymeAnnotationProvider
@@ -30,6 +34,10 @@ TOPDIR = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]-%(module)s.%(funcName)s: %(message)s")
 logger = logging.getLogger()
+
+# The provider's default PAZy URL, and a copy of its data for when PAZy refuses requests (e.g., from CI servers)
+PAZY_URL = "https://api.pazy.eu/api/proteins/json/?format=json"
+PAZY_TEST_DATA_PATH = os.path.join(HERE, "test-data", "pazy_proteins.json")
 
 SEQ_A = "MRNTLKAAFKLGVISAALLAPFATQAATAGPGAWSSQQTWAADSVNGG"
 SEQ_B = "MKHPYGYRWHWLYALVVTLMTALATFSAHAAVTAGPGAWSSQQTWAADTV"
@@ -318,13 +326,16 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertIsNone(peP.getAnnotation("7DZT_1"))
         self.assertIsNone(peP.getEnzyme("PAZy", "15"))
 
-    def __checkLiveSource(self, sourceDb, urlKey, rawFileName, dataFileName, minCount=100):
-        """Fetch one source from its default (live) URL, and the other from its local test file, and check that the live
-        source's raw file is downloaded and kept, and returns enough usable records."""
+    def __checkLiveSource(self, sourceDb, urlKey, rawFileName, dataFileName, minCount=100, sourceUrl=None):
+        """Fetch one source from its default (live) URL (or from sourceUrl, if given), and the other from its local test
+        file, and check that the fetched source's raw file is downloaded and kept, and returns enough usable records."""
         cachePath = os.path.join(self.__workPath, "CACHE-live-%s" % sourceDb)
         shutil.rmtree(cachePath, ignore_errors=True)
         kwargs = {"pazyUrl": self.__pazyPath, "plasticDBUrl": self.__plasticDBPath}
-        kwargs.pop(urlKey)
+        if sourceUrl:
+            kwargs[urlKey] = sourceUrl
+        else:
+            kwargs.pop(urlKey)
         peP = PlasticEnzymeAnnotationProvider(cachePath=cachePath, useCache=False, **kwargs)
         ok = peP.fetchPlasticEnzymeData(minCount=1)
         self.assertTrue(ok, "%s source data could not be fetched (see the error logged above)" % sourceDb)
@@ -338,8 +349,23 @@ class PlasticEnzymeAnnotationProviderTests(unittest.TestCase):
         self.assertTrue(any(eD["substrates"] for eD in dataD.values()), "no %s records have substrates" % sourceDb)
         self.assertTrue(peP.exportFasta(os.path.join(cachePath, "plastic-enzyme-sequences.fa")))
 
+    def __getHttpStatus(self, url):
+        """Return the HTTP status code for a request for url (with the provider's User-Agent), or None if the request fails."""
+        try:
+            with requests.get(url, headers={"User-Agent": "RCSB-PDB-ETL"}, timeout=30, stream=True) as resp:
+                return resp.status_code
+        except Exception as e:
+            logger.warning("Request for %r fails with %s", url, str(e))
+        return None
+
     def testPazySourceAccess(self):
-        """The live PAZy source data is accessible and usable (fails if PAZy can't be fetched)."""
+        """The live PAZy source data is accessible and usable (fails if PAZy can't be fetched). If PAZy refuses the request
+        (HTTP 403, e.g., when it blocks the CI servers' IP addresses), an error is logged and the bundled copy of the PAZy
+        source data (test-data/pazy_proteins.json) is checked instead."""
+        if self.__getHttpStatus(PAZY_URL) == 403:
+            logger.error("PAZy refused the request for %r (HTTP 403) - checking the bundled copy %r instead", PAZY_URL, PAZY_TEST_DATA_PATH)
+            self.__checkLiveSource("PAZy", "pazyUrl", "pazy_proteins.json", "pazy-select-data.json", sourceUrl=PAZY_TEST_DATA_PATH)
+            return
         self.__checkLiveSource("PAZy", "pazyUrl", "pazy_proteins.json", "pazy-select-data.json")
 
     def testPlasticDBSourceAccess(self):
